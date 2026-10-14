@@ -1,0 +1,82 @@
+[
+ {
+  "key": "add-illumination-one-press",
+  "verdict": "partly",
+  "severity": "low",
+  "evidence": "Fresh local copy of 1bc48a0 (api 8210, site 4210), sealed circle with 5 members. Script /home/user/pt4/verify/d_8210/a1.js: the Lightkeeper (1440x900) opened the Circle page, pressed Open reports and ticked two questions. Before the press the card read 'Not filed: Iris Vane, Pontius Reed, Mara Quill, Dev Okafor, Bram Holt.', TOTAL +2, and showed an enabled ADD 2 ILLUMINATION button (out_8210/a1_before_add.png). ONE click sent one gm_add_tally frame. The card read 'Added 2 Illumination' at once, the log line was 'The Lantern Watch gains 2 Illumination (0 to 2).', the ticks greyed out, the Not filed line disappeared, and the DB held illumination=2 (a1_after_add.png). a2.js then filed a report and sent a second gm_add_tally. The server refused it: 409 'This assignment's 2 Illumination is already added.' The one-press behaviour is reproduced. Two things count against calling it a bug. First, FAQ.md:248 documents one press, once per assignment. The control build 2d86b77 was one press too. PR 61 put the Not filed line in 'the Add Illumination area' (pr_body_fix4.md:13), and stage A's lkdesk re-check passed it. Second, 'lost for good' is overstated: the +1 Illumination and -1 buttons on the same page let the Lightkeeper add keys filed later, and each press is logged. Still true: decisions_fix4 item 5 says the non-filers are named 'in their existing confirm step', but Add has no confirm step. The decision's wording and the build disagree.",
+  "root_cause": "frontend/src/components/gm/CirclePage.jsx:349-352: addTally sends gmAddTally immediately. CirclePage.jsx:554-557: a plain button with onClick={addTally}, not the shared ConfirmAction. The Not filed line is a separate static paragraph at :547-549. Server refusal of a second add: backend/vtt/ws/handlers/gm.py:600-602. The build matches FAQ.md:248 but not the 'existing confirm step' wording in decisions_fix4 item 5.",
+  "fix": "Needs a product decision from Robert: keep it as built and documented, or add a confirm. If he wants the confirm, the smallest change is in CirclePage.jsx. Render ConfirmAction in place of the plain Add button only when notFiled is non-empty, with armedHint `Press again to add ${tally.total} now. ${notFiled}` and armed button 'Add'. Keep the one press when every report is filed. This follows the confirm wording rule at DESIGN.md:330 and does not block. Then update the FAQ.md:248 'one press' wording.",
+  "effort": "S",
+  "refute": null
+ },
+ {
+  "key": "lk-cannot-see-open-burn",
+  "verdict": "confirmed",
+  "severity": "medium",
+  "evidence": "Script /home/user/pt4/verify/d_8210/b1.js, same fresh copy. Iris (1366x768) spent 1 Intuition and rolled Survey rating 2 (3 dice: 4,3,3, Mixed success). Her tray offered BURN AND REROLL. With that burn open, the Lightkeeper desk at 1440x900 (out_8210/b1_lk_desk_open_burn.png, b1_lk_before_open_roll.png) shows only Iris's slip on the felt ('Survey +1d: 3 dice, highest counts, MIXED SUCCESS'), the roster cards and the log. The page text has no word for burn, resist, reroll or settle. The roster card has no marker, and the DICE / SECRET / ROLL 1 DIE controls carry no note. The Lightkeeper then pressed ROLL 1 DIE (open). Iris's Burn and reroll disappeared and her tray read 'Roll settled (i)' (b1_player_settled.png). The settling is the documented rule (FAQ.md:76, QUIRKS stale-burn-offer) and is not reported. What is confirmed is the gap: nothing on the Lightkeeper's desk tells her a player's burn is still open before her open roll ends it. This is not in issue #16, the decisions files, the calls kept as built, or issues.md. It is not a harness artifact: the check read the DOM, not timing.",
+  "root_cause": "The server tracks the open roll in _last_roll (backend/vtt/ws/handlers/rolls.py:179-197, settle_rolls) but never tells the Lightkeeper. Her store keeps only tableRoll, the newest roll by someone else (frontend/src/store/gameStore.js:583-586, set at :1104). It has no open or settled state for other players' rolls. The open roll button at frontend/src/components/pc/dice/GmDiceControls.jsx:43-45 has no hint that an open roll settles the table.",
+  "fix": "Client-only and small. Every open roll settles all the others, so at most one player roll can be open, and it is the Lightkeeper's tableRoll. Keep a tableRollOpen flag in gameStore: set it true when a player's dice_thrown arrives with a result below a full success and the roll not still waiting for its gilded die. Clear it on the Lightkeeper's own open roll, on End Assignment and on the next dice_thrown. In GmDiceControls, while the flag is set and Secret is off, show one short line under Roll, e.g. 'An open roll ends Iris's chance to burn on Survey.' (name and action from tableRoll), or add a small 'Burn open' mark on the felt slip. Optionally hide it when the member's sheet in memberSheets has no resistance left for that drive.",
+  "effort": "S",
+  "refute": null
+ },
+ {
+  "key": "burn-preview-omits-drive-die",
+  "verdict": "by-design",
+  "severity": "low",
+  "evidence": "Script /home/user/pt4/verify/d_8210/b1.js. Iris (1366x768) pressed 'Spend one more Intuition for +1d' and rolled Survey rating 2 (aria 'Roll Survey, rating 2, plus 1 from Intuition'). The slip read 'Survey +1d: 3 dice, highest counts' and the After the roll panel read 'INTUITION RESISTANCE / Survey: 2 dice (i) / BURN AND REROLL' (out_8210/b1_player_panel.png). So the seats' report is reproduced exactly. The 'i' (aria 'Survey: 2 dice, what a reroll throws') opens 'A reroll throws the action rating alone. Drive spent and dice an ability added are not thrown again.' (b1_player_tip.png). The number is right by FAQ.md:74. DESIGN.md:489 specifies this panel: 'The burn panel's pool line has an i saying a reroll throws the action rating alone'. Issue #16 keeps help on demand, never a permanent subline. The explanation the seats asked for already exists, one tap away, as designed. Four reports from three seats show the bare line reads like a mismatch, but adding the explanation to the line would contradict #16.",
+  "root_cause": "frontend/src/components/pc/dice/RollModifications.jsx:73-75 builds the pool as the rating alone (correct). At :87-90 the line's label is `${action}: ${pool}`, the same form as the slip's '<Action> +1d: 3 dice'. Only the InfoTerm text says it is the reroll's pool. This matches DESIGN.md:489 and issue #16.",
+  "fix": "No bug fix needed. If Robert wants the line to stop reading as a mistake without a subline, the smallest wording change is to the label at RollModifications.jsx:87: 'Reroll: Survey, 2 dice' (or 'Rerolls 2 dice'), so it names what the number counts. The InfoTerm stays as is. This is a wording call for Robert, not a defect.",
+  "effort": "S",
+  "refute": null
+ },
+ {
+  "key": "edit-sheet-log-truncates-identically",
+  "verdict": "confirmed",
+  "severity": "medium",
+  "evidence": "Fresh build on 8220. A player socket sent edit_sheet twice on Style, first Tidy to a long line, then the same line plus ', salt-stiffened cuffs from the ferry'. activity_lines row 9 (also visible in the player's log in screenshot out_main/sheet_after_use.png): 'Iris Vane: style Soot-grey coat, many pockets (key), a bi... to Soot-grey coat, many pockets (key), a bi....' Both halves are the same 40-char prefix, so the appended words never appear. The first edit also reads 'Tidy to Soot-grey coat, many pockets (key), a bi...', so the new text is cut too. Not a harness artifact and not decided: decisions_fix5 item 1 relies on the log naming what changed.",
+  "root_cause": "backend/vtt/sheet_edits.py:42 SHOWN_MAX = 40 and :133-136 _shown(): text[:SHOWN_MAX].rstrip() + '...' is a prefix cut applied independently to the old and the new value; used by every free-text field and by _added_removed for gear and scars.",
+  "fix": "For a free-text field change, compute the common prefix and suffix of old and new and show a window around the differing part (for example '...cuffs from the ferry' added, or 'style: ...many pockets (key), [+, salt-stiffened cuffs from the ferry]'). The simplest form is to raise SHOWN_MAX for free-text fields to the field max, or elide the shared prefix and keep the tail so the end is always visible. Keep the 40-char cut only for list items. Add a test with a change after char 40.",
+  "effort": "S",
+  "refute": null
+ },
+ {
+  "key": "lk-sheet-no-ability-used",
+  "verdict": "partly",
+  "severity": "low",
+  "evidence": "Reproduced the Lightkeeper side: Slink with Death Defy, LK dealt a Bleed mark, player sent resolve_ability_mark use; DB ability_uses = {\"Death Defy\": 1}. The Lightkeeper's open sheet (out_main/sheet_after_use.png, Role ability tab) shows only the Death Defy text, no spent state. But the finding's premise is wrong: the player's own dossier does not show 'Used this assignment' for Death Defy either (page text on the player desk after use has only the ability text and the log line). 'Used this assignment.' is rendered only by ScarAbilityUse (InvestigatorDossier.jsx:206-210, for Not Again and Forbidden Ritual, next to a Use button), and the LK's read-only sheet never renders that. So there is no player/Lightkeeper parity break; it is the same gap as F115 (no used or ready marker for offer-driven once-per-assignment abilities, both desks). The Lightkeeper not seeing a spent Death Defy is a real small gap, which the log covers.",
+  "root_cause": "frontend/src/components/pc/InvestigatorDossier.jsx ability panel renders no used state from character.ability_uses for abilities without a Use button (Death Defy, soaks); ability_uses is already in the serialized sheet (backend/vtt/serializers.py:94) and so reaches the LK copy (GMCharacterSheet.jsx:358 renders the same InvestigatorDossier with readOnly).",
+  "fix": "In the dossier's ability panel, for each once-per-assignment ability (ability_uses.py 'once') with ability_uses[name] >= 1 show a line 'Used this assignment.' (and optionally 'Ready' otherwise), for both the player and the readOnly copy. This also closes F115. Reclassify the finding as 'no used/ready marker on any desk', not an LK-only gap.",
+  "effort": "S",
+  "refute": null
+ },
+ {
+  "key": "lk-roster-card-no-held-mark",
+  "verdict": "confirmed",
+  "severity": "low",
+  "evidence": "Fresh build: LK dealt Iris Vane (Death Defy) a Bleed mark with From an enemy on; server sent ability_mark_offer (action escape, offer_id b4919974.1). On the Lightkeeper's roster the card text was exactly 'No. 44444 | | Iris Vane | | SLINK | | CRIMINAL' with no state line. The LK's open sheet said 'Bleed mark held for Death Defy.' (out_main/sheet_held.png run). FAQ.md:147 says cards show state at a glance, and decisions_fix6 #23 only put held marks on the sheet copy, so not decided. Low rather than medium: the offer lasts about 30 seconds, and the log shows 'The Lightkeeper dealt ... a Bleed mark', which she has just done herself.",
+  "root_cause": "frontend/src/components/gm/desk/InvestigatorBusinessCard.jsx:22-33 glanceOf() has no held-mark term; also the roster payload (backend/vtt/routers/campaigns.py:665-671 to_item) does not carry held_marks, only the full sheet (serializers.py:110 held_marks()) does.",
+  "fix": "Add held_marks to the LK-only fields of the roster item (campaigns.py to_item, schemas CharacterRosterItem) and make the roster card take it from member_update frames (the GM desk already receives the sheet with held_marks). In glanceOf add 'Bleed mark held: Death Defy?' (use held_marks.mark_types and the ability name) when present.",
+  "effort": "M",
+  "refute": null
+ },
+ {
+  "key": "lk-charter-editable-before-seal",
+  "verdict": "confirmed",
+  "severity": "medium",
+  "evidence": "Fresh local copy of 1bc48a0. Built a campaign over the API with 2 approved investigators, left it unsealed. Player 1 saved chapter_house 'PLAYERS: the old lighthouse' (circle_backstory_update), voted name_vote 'The Gulls' and ability 'Tinker'. The Lightkeeper then sent update_circle with name 'LK Name', chapter_house_location 'LK: the cellar', circle_ability 'LKAbility'. The server accepted all three before the seal (no guard). After finalize-roster, the circles row read: name 'The Gulls' (vote overwrote the LK name), circle_ability 'Tinker' (vote overwrote), chapter_house_location 'LK: the cellar'. The players' text stayed only in backstory_answers and was dropped without a word. Screenshot lk_circle.png (1440x900, Circle tab, unsealed) shows 'Unnamed Circle' with an Edit button, an empty editable Chapter house box and a live 'Choose a circle ability...' dropdown, and no hint that the players are deciding these. The charter also does not show the players' voted name or written house. The roster's 'Circle formation so far' panel shows the players' house (backstoryAnswers only), so it disagrees with what the seal writes when the Lightkeeper has typed one. Not a decided behaviour and not on #16; FAQ line 211 only says the panel shows the house 'as written'. Files: /home/user/pt4/verify/d_8230/c1.js, c2.js, lk_circle.png.",
+  "root_cause": "backend/vtt/routers/circles.py:271-281 (finalize copies the players' chapter_house only 'if not circle.chapter_house_location'). backend/vtt/ws/handlers/gm.py:521-527 (handle_update_circle sets name, chapter_house_location and circle_ability with no is_finalized check). frontend/src/components/gm/CirclePage.jsx:390-406 (name and chapter house EditableLine) and :485 (ability select) have no is_finalized guard.",
+  "fix": "Smallest: (1) in finalize, let the players' answer win like the name and ability do: replace 'if not circle.chapter_house_location:' with 'if house:' so a non-empty formation answer overwrites, keeping the Lightkeeper's text only when the players wrote nothing. (2) In CirclePage.jsx, while !circle.is_finalized render name, chapter house and ability read-only (plain text) with one line such as 'Decided in the formation papers until the seal.' Optionally have the charter preview the leading vote and the written house. Needs a small product call on whether the Lightkeeper may pre-fill the house when the players write nothing (the fix above keeps that).",
+  "effort": "S",
+  "refute": null
+ },
+ {
+  "key": "formation-parts-no-done-state",
+  "verdict": "partly",
+  "severity": "low",
+  "evidence": "Fresh local copy. Opened the player's formation papers (player 1 had voted the name and ability and saved a house) at 390x844 (ph_pl.png) and 1366x768 (lap_pl.png). The I-VI strip is bare numerals (the part names are sr-only only), and the part headings are plain label plus arrow with no tick or done word, confirmed in code. The player's side has no summary of what the circle still waits for. Inside the parts there is some trace: a TickMark 'Voted' on the vote buttons, 'your vote', and per-field 'Saved'. Overstated: the claim that nothing shows what the circle waits for is wrong for the Lightkeeper. The roster's 'Circle formation so far' panel (gm/desk/CircleFormationStatus.jsx, DESIGN.md 425-426, FAQ.md 211) already shows per part a tick or open ring per investigator ('2 of 3 voted') and 'Waiting for an answer from X', and it is the Lightkeeper's tool for 'tick every part'. The log staying silent on votes is intended noise control (the finding itself says so). Formation as a blocking dialog is #16 and is untouched. So only the player-side per-part done mark and the unnamed numerals on the phone are real, and both are small polish.",
+  "root_cause": "frontend/src/components/pc/CircleCreationPopup.jsx:51-62 (Section takes only title and children, no done prop) and :231-239 (the sm:hidden strip prints only the roman numeral with the name in sr-only). The answered state is already known in the component (myQuestionVote, name and ability votes, houseSent, relationship list).",
+  "fix": "Give Section an optional done prop and draw a TickMark beside the title when this player has answered that part (question vote, personal answer, name vote or suggestion, house, ability vote, insignia vote, at least one relationship); mirror the tick on the phone strip buttons and show a short name next to the numeral when it fits (or put the names in a title). No server change. Optionally show the Lightkeeper's 'what is still open' count to players, which needs a product call since the state is already sent to every member.",
+  "effort": "S",
+  "refute": null
+ }
+]

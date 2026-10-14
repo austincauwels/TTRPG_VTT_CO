@@ -1,0 +1,1609 @@
+{
+ "title": "Candela VTT: fourth AI playtest (14 October 2026), build main 1bc48a0",
+ "stats": {
+  "recheck_items": {
+   "fixed": 132,
+   "partly": 12,
+   "not_fixed": 2,
+   "not_checked": 4
+  },
+  "recheck_items_stage_a": {
+   "fixed": 94,
+   "partly": 8,
+   "not_fixed": 0,
+   "not_checked": 2
+  },
+  "recheck_items_stage_b": {
+   "fixed": 38,
+   "partly": 4,
+   "not_fixed": 2,
+   "not_checked": 2
+  },
+  "findings_play": 121,
+  "findings_play_by_kind": {
+   "ux": 64,
+   "praise": 53,
+   "bug": 2,
+   "rules": 1,
+   "idea": 1
+  },
+  "findings_checks": 59,
+  "clusters": 84,
+  "praise_themes": 8,
+  "new_confirmed": 42,
+  "new_unverified": 31,
+  "repeats": 7,
+  "not_reproduced": 3,
+  "coverage_notes": 1,
+  "note": "The 84 clusters split as 42 new and confirmed (verified on a fresh local copy, or seen in the re-check or a side check), 31 new low items seen only once in blind play and not verified, 7 repeats of open issues or decided behaviour, 3 not reproduced (by design or a harness artifact) and 1 list of coverage gaps. ability-ready-state-unshown is counted as confirmed because the verifier of lk-sheet-no-ability-used saw the same gap on the player's desk."
+ },
+ "recheck": [
+  {
+   "area": "Stage A: Circle page, Illumination and reports",
+   "fixed": 15,
+   "partly": 0,
+   "not_fixed": 0,
+   "not_checked": 0,
+   "notes": "All held: the #67 ring at 320 to 1366 px (44px Lightkeeper pips, no mis-hits), resources start and refill at 1 plus members with no Refill button (#66.4), the Resource Management earn-back (one press, survives reload and restart), 69.3, one Illumination line per addition (45.3, 45.13), the Keys wording (#66.5), the report line (#58), 45.14, the Well-Read log (#55), 60.17, 60.18, 69.6. New small items: R001 (+1 past 12 hides a 13), R002, R003, R004."
+  },
+  {
+   "area": "Stage A: Dice and rolls",
+   "fixed": 16,
+   "partly": 2,
+   "not_fixed": 0,
+   "not_checked": 1,
+   "notes": "Held: #51, the spend confirm (#60), 60.11, 60.12, 45.8, 45.9, 60.8, free questions (#63), 69.2, #24, 45.11, 60.16, 60.22, 69.5, 60.9 and pool sizes against the rules. Partly: 60.5 (the keep-a-die dice still shimmy on touch, R006) and 45.15 (scroll to a new scar works from Edit sheet; the scar form from marks was not reproduced). Not checked: focus in a second tab. New: R005, the server takes a second roll over a waiting gilded choice."
+  },
+  {
+   "area": "Stage A: Release, leave, sheet edits and the dead",
+   "fixed": 19,
+   "partly": 1,
+   "not_fixed": 0,
+   "not_checked": 0,
+   "notes": "Held: #49 release and leave before and after the seal, from desk and hub, with a second tab; #62 confirms; #50 Train dice; #38 and #22 refusals for the dead; #39; #41; #42; #47 Fallen; #64 Edit sheet and gear; 69.1; 69.7; 69.8a; the insignia chooser (#66.7). Partly: a member who leaves and rejoins in the same assignment comes back with 0 spends used (R010)."
+  },
+  {
+   "area": "Stage A: The Lightkeeper's desk",
+   "fixed": 17,
+   "partly": 1,
+   "not_fixed": 0,
+   "not_checked": 0,
+   "notes": "Held: one navigation (#66.3) at eight sizes, Dispatch fits (#66.2), 45.1, 45.4, 45.5, 69.8b, 45.6, 45.7, 60.6, 60.13, 60.19, 69.4, the Not filed line, #56, #65, #57, short confirms everywhere, restart and second tab. Partly: the join-request pop-up and Requests count stay stale in a second Lightkeeper tab after the other tab approved (R013)."
+  },
+  {
+   "area": "Stage A: Notebook, hub, creator and sign-in",
+   "fixed": 15,
+   "partly": 4,
+   "not_fixed": 0,
+   "not_checked": 1,
+   "notes": "Held: #52, #53, #54 (payloads too), #44, #25, #20, 60.21, #26, 45.19, 60.23, 45.20, 60.15, the first-person join notice, 45.17, 45.18, #46. Partly: #21 (works, but the original bug did not reproduce on the control in headless Chromium either), 60.10 (still listed open), 60.4 (the Let in mark lives only in the browser that saw the approval, R019) and 60.24 (Google frame cannot render in the sandbox). Not checked: 60.25 (code only)."
+  },
+  {
+   "area": "Stage A: Restarts, held marks and the tray",
+   "fixed": 12,
+   "partly": 0,
+   "not_fixed": 0,
+   "not_checked": 0,
+   "notes": "Held: #17 log in the database (500 kept, last 100 sent), #18, held marks back after a restart with the same offer id, #23, #43 (including the 10 minute drop), two desks answering one held mark, #19, #40, 60.7, 45.10, #59 ally-offer log lines. New: R029 to R032 (silent Non-Combatant refusal, burn offered after a live reconnect, 22px post-roll buttons, a dealt mark beside a stored Death Defy hold)."
+  },
+  {
+   "area": "Stage B: Advancement near 12 with Resource Management",
+   "fixed": 8,
+   "partly": 0,
+   "not_fixed": 0,
+   "not_checked": 1,
+   "notes": "Held on five live desks: four reports filed, Add Illumination across 12 with the carry-over shown, Advance refills to 1 plus members, the advancement dialog with Later, no double application, the earn-back at 3, End Assignment resets, reloads. Not checked: the Lightkeeper's roster card while picks wait. New wording items R033 to R036."
+  },
+  {
+   "area": "Stage B: Scars up to a death",
+   "fixed": 16,
+   "partly": 2,
+   "not_fixed": 1,
+   "not_checked": 0,
+   "notes": "Held: third and fourth mark, the scar form on a phone, Revive, Death Defy hold and use, the fourth scar and death live on every desk, refusals for the dead (crafted frames and REST), Fallen card, history and Registry, replacement with the spend count kept, release mid-assignment. Not fixed: a dead investigator can still file and amend a report (R045). Partly: the resource maximum drops silently at a death (R046) and a scar owed is lost on a restart (R047)."
+  },
+  {
+   "area": "Stage B: Timed windows and restarts",
+   "fixed": 14,
+   "partly": 2,
+   "not_fixed": 1,
+   "not_checked": 1,
+   "notes": "Held with real waits: ally offers at 1:50 land and at 2:05 are refused, lapse lines, the countdown against the server window, the spend confirm armed for 30 s, the timer on five desks and after reload, reconnect with backoff, held marks across a restart, drafts and the End confirm across an outage, the log. Not fixed: a gilded choice across a restart (3.5, R058). Partly: Non-Combatant cards outlive a restart (3.3) and Burn is still offered after a live reconnect (3.4). Not checked: #23 after a restart (3.10)."
+  }
+ ],
+ "story": "The Gullhaven Chapter's circle, The Whistlers (Nobody Left Behind, Candlelight insignia, chapter house the old chain-ferry toll shed), was Ada Quill (Scholar, Professor), Bram Okafor (Muscle, Soldier), Cass Moreau (Slink, Criminal) and Dev Lindqvist (Weird, Occultist). On the estuary flats at dusk they found a psalm stamped on every seventh link of the ferry chain, footprints that ended at the channel, and a bell that was a recording of a ring with a man counting coins to forty under it; the thing in the fog tasted Cass (a Bleed mark held for Death Defy). In the ferryman's cottage Bram braced the door, Ada read a psalm sheet whose hand changes halfway and recognised the slant from her own tome, Cass sprang the tide-ledger and found forty years of fares, and Dev learned that the portrait of Absalom Hode bore the chain's stamp. On the ferry mid-channel, with the tide turning and a ten-minute timer running, Bram jammed the windlass, Dev's salt ward stopped the counting at forty-one, Ada found her own name drying last in the fare column, and the tide threw Cass into the hold until she was at Body 3 of 3. She cut the ferryman's empty coat from the bell, Bram hauled her out and Ada read the first fare, Hode's own: he was carried over and the psalm laid to rest with 3:42 left on the timer. No one was scarred or taken out. Two questions answered yes and a key from everyone gave 6 Illumination (6 of 12, no advance), and End Assignment came at 22:55, leaving a hook: Ada's name is still last in the ledger.",
+ "timeline": [
+  {
+   "phase": "Campaign (22:10 to 22:14)",
+   "what": "The Lightkeeper signed up on beta, created The Gullhaven Chapter (code gullhaven-r4), toured the five desk sections and posted the code. Findings F001 to F004."
+  },
+  {
+   "phase": "Investigators (22:14 to 22:21)",
+   "what": "Four players signed up and built investigators on a desktop, a phone, a laptop and a tablet (portraits, emoji and Markdown in fields, gear cap), then asked to join. F005 to F014."
+  },
+  {
+   "phase": "Approval (about 22:22 to 22:25)",
+   "what": "Requests arrived live with a badge and pop-up. The Lightkeeper read each sheet with View sheet and approved Bram, Ada, Cass and Dev; the formation papers opened on each desk without a reload. Resources showed 5/5/5. F015 to F018."
+  },
+  {
+   "phase": "Circle formation (22:25 to 22:30)",
+   "what": "Votes, name suggestions (a tie broken by the tie rule), the chapter house, ability, insignia and eleven relationships, live on every device. F019 to F031."
+  },
+  {
+   "phase": "Seal and first dispatch (22:30 to 22:31)",
+   "what": "Finalize in two presses sealed The Whistlers; the first dispatch went out at 22:30 and the clock 'The fog comes in' rose to 1 of 4. F032 to F034."
+  },
+  {
+   "phase": "Round 1, the estuary flats (22:31 to 22:36)",
+   "what": "Four rolls with drive spends and gilded choices (one critical), Dev's photograph entry, a Bleed mark held for Cass's Death Defy, an open and a secret Lightkeeper roll, tension 2, a private note to Ada, the second dispatch. F035 to F050."
+  },
+  {
+   "phase": "Round 2, the ferryman's cottage (22:36 to 22:44)",
+   "what": "Death Defy used, Learn from My Mistakes, marks dealt to Cass, Bram and Ada, spending opened, a sketch map posted, tension 3 renamed 'The tide turns', a 10:00 timer started at 22:43 and the third dispatch. F051 to F069."
+  },
+  {
+   "phase": "Round 3, the ferry (22:44 to 22:51)",
+   "what": "Adrenaline Rush, Great Wards, a Stitch and a Train, Cass's Edit sheet, an open tide roll of 6 taking Cass to Body 3 of 3, the resolution, timer paused at 3:42 and cleared, tension to 0, reports opened and two questions ticked. F070 to F093."
+  },
+  {
+   "phase": "Wrap (22:51 to 22:56)",
+   "what": "All four reports filed (one amended), Add 6 Illumination (0 to 6, correct by p. 55) and End Assignment at 22:55, live on every desk. F094 to F105."
+  },
+  {
+   "phase": "After (22:56 to 23:00)",
+   "what": "Downtime at the toll shed: Stitch and Refresh spends, the ward moved to Ada, exit notes. F106 to F121."
+  }
+ ],
+ "bugs": [
+  {
+   "key": "death-lowers-resource-max-silently",
+   "title": "A death lowers the circle resource maximum on the server without telling any desk, and leaves each pool above its new maximum",
+   "severity": "high",
+   "area": "circle-page",
+   "devices": [
+    "tablet 820x1180",
+    "laptop 1366x768"
+   ],
+   "what_happens": "In a sealed circle of 3 with Stitch 4, Refresh 4, Train 3 (max 4), a fourth scar kills one member. Live, every desk still reads 'Stitch 4 · max 4'. After a reload the Lightkeeper's desk reads 'Stitch 4 · max 3', 'Stitch: 4 of 3 available.' and 'Refills: To 3 each', while players still read 4 of 4 until they reload. When the replacement is approved the maximum returns to 4.",
+   "steps": "Seal a circle of 3 with resources at max 4. Kill one member with a fourth scar. Read the Lightkeeper's roster card and Circle page, then reload both desks.",
+   "root_cause": "backend/vtt/ws/handlers/character.py handle_apply_scar sends no circle_update and does not call lower_resources_to_pool; backend/vtt/circle_queries.py resource_pool counts living members only.",
+   "fix": "Needs Robert's call first (see decisions). Either count the dead toward 1 plus members until a replacement is approved (resource_pool), or lower the pools on a death exactly as a release does (decisions_fix4 1). In both cases send a circle_update so every desk shows one maximum live and never a pool above it.",
+   "effort": "S",
+   "evidence": "seen in side check",
+   "members": [
+    "R039",
+    "R046"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/death/shots/12_lk_roster.png",
+    "/home/user/pt4/verify/death/shots/13_lk_roster_reload.png"
+   ]
+  },
+  {
+   "key": "scar-owed-lost-on-restart",
+   "title": "A scar owed is forgotten by the server after a restart, so the investigator can be revived with no scar",
+   "severity": "high",
+   "area": "marks-scars",
+   "devices": [
+    "laptop 1366x768 (Lightkeeper)",
+    "phone 390x844"
+   ],
+   "what_happens": "A member takes a fourth mark and the player presses Decide later. After a backend restart and reloads, the Lightkeeper's copy and the player's stamp read only 'Incapacitated'. The player's 'A scar is waiting' banner survives only because it is kept in that browser; on another device or with cleared storage the owed scar is gone, and the Lightkeeper can Revive with no scar recorded. This breaks decisions_fix6 1 (a restart loses nothing a player can see).",
+   "steps": "Deal a fourth mark, press Decide later, restart the API, reload both desks and open the sheet.",
+   "root_cause": "backend/vtt/serializers.py lines 16-17: awaiting_scar is an in-memory set.",
+   "fix": "Store the owed scar on the character (a column, as held_mark was stored for #17 and #43), serialize scar_pending from it and clear it when the scar is recorded or the investigator dies. Add a restart test.",
+   "effort": "M",
+   "evidence": "seen in side check",
+   "members": [
+    "R040",
+    "R047"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/death/shots/33_bram_after_restart_reload.png",
+    "/home/user/pt4/verify/death/shots/33_lk_bram_after_restart.png"
+   ]
+  },
+  {
+   "key": "lk-charter-editable-before-seal",
+   "title": "Before the seal the Lightkeeper's charter edits the name, chapter house and ability, and a chapter house typed there silently replaces the players' answer at the seal",
+   "severity": "medium",
+   "area": "circle-formation",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "Logged as UX; listed here because the seal drops what players wrote. During formation the Lightkeeper's Circle tab shows 'Unnamed Circle' with Edit, an editable Chapter house box and a live ability dropdown, with no hint that the players are deciding these. The server accepts all three. At the seal the vote overwrites her name and ability, but her chapter house wins and the players' saved answer is dropped without a word. The roster's 'Circle formation so far' panel still shows the players' house, so it disagrees with what the seal writes.",
+   "steps": "New campaign, two approved members, not sealed. A player saves a chapter house in the papers. The Lightkeeper types a different one on her Circle tab. Finalize and read the chapter house.",
+   "root_cause": "backend/vtt/routers/circles.py:271-281 copies the players' chapter_house only 'if not circle.chapter_house_location'; backend/vtt/ws/handlers/gm.py:521-527 handle_update_circle has no is_finalized check; frontend/src/components/gm/CirclePage.jsx:390-406 and :485 have no is_finalized guard.",
+   "fix": "In finalize let a non-empty formation answer win ('if house:'), keeping the Lightkeeper's text only when players wrote nothing. Before the seal render name, house and ability read-only with one line such as 'Decided in the formation papers until the seal.' Optionally preview the leading vote and the written house.",
+   "effort": "S",
+   "evidence": "verified",
+   "members": [
+    "F016"
+   ],
+   "shots": [
+    "/home/user/play4/shots/dm/030_circle.png",
+    "/home/user/pt4/verify/d_8230/lk_circle.png"
+   ]
+  },
+  {
+   "key": "edit-sheet-log-truncates-identically",
+   "title": "The Edit sheet log line cuts old and new text at the same 40 characters, so a change late in a long field is invisible",
+   "severity": "medium",
+   "area": "player-desk",
+   "devices": [
+    "laptop 1366x768"
+   ],
+   "what_happens": "Cass appended words to a long Style line. The log read 'style Soot-grey coat, many pockets (key), a b... to Soot-grey coat, many pockets (key), a b...': both halves cut at the same point, so it reads as no change. Detection, not prevention (decisions_fix5 1) relies on this line naming what changed from what to what. Every free-text field is affected; numeric edits are fine.",
+   "steps": "Player desk, Edit sheet. Append text after the 40th character of a long Style (or other text) field and Save. Read the Lightkeeper's Activity Log.",
+   "root_cause": "backend/vtt/sheet_edits.py:42 SHOWN_MAX = 40 and :133-136 _shown() cut old and new independently to the same prefix.",
+   "fix": "For free-text fields, drop the shared prefix and suffix and show the part that differs (or the added words); keep the 40-character cut for list items only. Add a test with a change after character 40.",
+   "effort": "S",
+   "evidence": "verified",
+   "members": [
+    "F079"
+   ],
+   "shots": [
+    "/home/user/play4/shots/cass/059_saved.png"
+   ]
+  },
+  {
+   "key": "dead-can-file-report",
+   "title": "A dead investigator can still file and amend an assignment report",
+   "severity": "medium",
+   "area": "circle-page",
+   "devices": [
+    "tablet 820x1180",
+    "laptop 1366x768 (Lightkeeper)"
+   ],
+   "what_happens": "The dead player's Circle page keeps the report form with Send report live. The report is stored and 'Iris Vane filed an assignment report.' goes to every desk; a crafted replace:true amendment is accepted too. The Lightkeeper's Circle page shows a 'Report filed' card for the dead beside '0 of 2 filed', and the report stays after the replacement is approved. The tally appears to skip the dead, so no wrong Illumination number was seen.",
+   "steps": "Seal a table with reports open. Kill an investigator with a fourth scar. On the dead desk open Circle, tick a key and press Send report.",
+   "root_cause": "backend/vtt/ws/access.py DEAD_REFUSED (around line 551) lacks submit_assignment_report; backend/vtt/ws/handlers/circle.py handle_submit_assignment_report checks only status active.",
+   "fix": "Add submit_assignment_report to DEAD_REFUSED (409 '<name> is dead: the sheet is a record.'), hide the form on a dead desk, and drop a dead member's report from the cards.",
+   "effort": "S",
+   "evidence": "seen in side check",
+   "members": [
+    "R038",
+    "R045"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/death/shots/15_iris_report_try.png",
+    "/home/user/pt4/verify/death/shots/16_lk_circle_keys.png"
+   ]
+  },
+  {
+   "key": "leave-rejoin-resets-spend-count",
+   "title": "Leaving and rejoining in one assignment resets the player's circle spend count",
+   "severity": "medium",
+   "area": "campaign-management",
+   "devices": [
+    "laptop",
+    "phone"
+   ],
+   "what_happens": "A player who used both spends leaves (optionally across a restart), asks to join again and is approved. He comes back with 0 spends used and can spend two more this assignment. Pools are not refilled, so only the per-player cap is bypassed, and only with the Lightkeeper's approval. A replacement keeps its predecessor's count (#41), but a returning member does not keep their own.",
+   "steps": "With spending open, use both spends, Leave, ask to join again, have the Lightkeeper approve, read the spend count.",
+   "root_cause": "release_from_campaign calls end_assignment_for, which zeroes resources_spent_assignment (backend/vtt/assignment.py); approve_investigator in engine.py carries a count over only from a predecessor (#41).",
+   "fix": "Once Robert confirms, do not zero the spend count on release (or carry it back on approval when the same character returns within the same assignment).",
+   "effort": "S",
+   "evidence": "seen in re-check",
+   "members": [
+    "R010",
+    "R012"
+   ],
+   "shots": []
+  },
+  {
+   "key": "gilded-keep-after-restart-shows-outcome",
+   "title": "After a server restart, a refused gilded keep still shows an outcome and offers Burn and reroll",
+   "severity": "medium",
+   "area": "dice",
+   "devices": [
+    "desktop 1920x1080"
+   ],
+   "what_happens": "A gilded roll waits for its die across an API restart. After the desk reconnects, Keep the gilded is refused ('No roll is waiting for a die to be kept. Roll again.'), but the slip still reads 'kept the gilded 4 / MIXED SUCCESS' and offers Burn and reroll, which the server would also refuse. Nothing was logged at the table. Breaks decisions_fix6 2 (the tray tells the truth).",
+   "steps": "Roll a gilded action with 2 or more dice and leave the choice waiting. Restart the API, let the desk reconnect, press Keep.",
+   "root_cause": "frontend/src/store/gameStore.js action_rejected path near line 1170 clears pendingGildedChoice but keeps the locally kept result.",
+   "fix": "On that refusal clear the slip's outcome and the burn offer and say the roll was lost to a restart ('Roll again.'). Pair with live-desk-burn-after-restart.",
+   "effort": "S",
+   "evidence": "seen in side check",
+   "members": [
+    "R048",
+    "R058"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s3_06_rhea_keep_after_restart.png"
+   ]
+  },
+  {
+   "key": "non-combatant-not-resent-on-reload",
+   "title": "A Non-Combatant drive point card is not sent again when the ally's desk reloads inside the window",
+   "severity": "medium",
+   "area": "abilities",
+   "devices": [
+    "phone 390x844"
+   ],
+   "what_happens": "A Doctor with Non-Combatant takes a mark; an ally gets a Non-Combatant card and a Behind Me card and reloads 8 s later. Only Behind Me comes back (expires_in 116). The server still holds the point, cannot be claimed, and its lapse line appears later. The FAQ and QUIRKS say an offer comes back with its time left after a reload.",
+   "steps": "A Doctor with Non-Combatant takes a Body mark. Reload an ally's desk within 2 minutes.",
+   "root_cause": "backend/vtt/ws/handlers/marks.py send_open_intercepts re-sends only Behind Me and Premonitions.",
+   "fix": "Re-send pending Non-Combatant points with their time left in send_open_intercepts.",
+   "effort": "S",
+   "evidence": "seen in side check",
+   "members": [
+    "R049"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s5_01_dax_reloaded_in_window.png"
+   ]
+  },
+  {
+   "key": "non-combatant-silent-refusal",
+   "title": "A Non-Combatant card outlives a server restart, and its refusal closes the card with no word",
+   "severity": "medium",
+   "area": "abilities",
+   "devices": [
+    "phone 390x844",
+    "tablet 820x1180"
+   ],
+   "what_happens": "After a restart, Behind Me and Premonitions cards are dropped on reconnect as designed, but the Non-Combatant card stays with its countdown. Use is refused ('No Non-Combatant drive point is waiting.') and the card closes silently with Nerve unchanged, so the player believes it worked. In normal play a lapsed Non-Combatant answer's refusal is also replaced by the next card and never shown. Same on the control build, so not a regression.",
+   "steps": "Finn takes a mark so allies get a Non-Combatant card. Restart the API, let desks reconnect, pick NER and press Use.",
+   "root_cause": "frontend/src/store/gameStore.js withoutIntercepts drops only intercept offers on socket open, and abilityMarkRefused is set only for own-mark answers.",
+   "fix": "Drop Non-Combatant cards on socket open with the other ally offers, and show its refusal the way 'PREMONITIONS NOT USED' is shown (FAQ.md:120, decisions_fix6 1).",
+   "effort": "S",
+   "evidence": "seen in side check",
+   "members": [
+    "R029",
+    "R050",
+    "R056"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s4_01_dax_answer_0.png",
+    "/home/user/pt4/verify/state/out_main/o59b_1_after_nc_use.png",
+    "/home/user/pt4/verify/state/out_main/o59d_2_nc_after_restart.png"
+   ]
+  },
+  {
+   "key": "server-takes-roll-over-gilded-choice",
+   "title": "The server takes a new roll while a gilded choice is still waiting, and drops the first choice",
+   "severity": "low",
+   "area": "dice",
+   "devices": [
+    "socket (no screen)"
+   ],
+   "what_happens": "Roll Read with 0 drive (gilded pool 2, a keep needed), then roll Sway before resolving: the second roll returns a result at once and the first choice is lost. Only the desk prevents this, so a second tab or device that has not seen the choice could roll over it. FAQ line 18 says the server holds the dice until a die is kept.",
+   "steps": "Over the socket: roll a gilded action that needs a keep, then send another roll before resolve_gilded.",
+   "root_cause": "backend/vtt/ws/handlers/rolls.py roll handler has no pending-gilded guard.",
+   "fix": "Refuse a roll while that character has a gilded choice waiting ('Keep a die from your last roll first.').",
+   "effort": "S",
+   "evidence": "seen in re-check",
+   "members": [
+    "R005"
+   ],
+   "shots": []
+  },
+  {
+   "key": "non-combatant-logs-full-drive",
+   "title": "Non-Combatant logs 'recovered 1' for a drive that was already full, and spends the point",
+   "severity": "low",
+   "area": "abilities",
+   "devices": [
+    "tablet 820x1180"
+   ],
+   "what_happens": "Esme at Intuition 3 of 3 picks INT on a Non-Combatant card. Intuition stays 3, yet every desk logs 'Esme Rook recovered 1 Intuition (Non-Combatant).' and the point is used up. Here the answer came on a lapsed card and was credited against another point still waiting.",
+   "steps": "With a drive full, answer a Non-Combatant card choosing that drive.",
+   "root_cause": "backend/vtt/ws/handlers/marks.py handle_resolve_ability_mark, Non-Combatant branch, lines about 700-705.",
+   "fix": "Log only what came back (as Well-Read now does) and refuse or mark a full drive in the picker.",
+   "effort": "S",
+   "evidence": "seen in side check",
+   "members": [
+    "R052"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/timing/out_main/s1_05_esme_late_0.png"
+   ]
+  },
+  {
+   "key": "dealt-mark-beside-held-death-defy",
+   "title": "A mark dealt to a closed desk lands beside a stored Death Defy hold, and the old offer comes back afterwards",
+   "severity": "low",
+   "area": "marks-scars",
+   "devices": [
+    "laptop"
+   ],
+   "what_happens": "Iris has a Body mark held for Death Defy and her desk is closed. The Lightkeeper deals another Body mark; it lands at once ('Their desk is closed...') and the hold is kept. When Iris opens her desk she is offered Death Defy for the first mark after a same-harm mark already landed. Same on the control; a rules call.",
+   "steps": "Hold a mark for Death Defy, close the desk, deal another mark of the same kind from the Lightkeeper's desk, open the player's desk.",
+   "root_cause": "backend/vtt/ws/handlers/marks.py take_mark from the Lightkeeper's socket when no desk is open.",
+   "fix": "After Robert's call: land the held mark first and close its offer (as WEBSOCKET.md 4.5 says for a mark taken while an offer holds one), or join the new mark to the offer.",
+   "effort": "S",
+   "evidence": "seen in re-check",
+   "members": [
+    "R032"
+   ],
+   "shots": []
+  },
+  {
+   "key": "player-can-self-revive",
+   "title": "The FAQ says the Lightkeeper revives, but the player's own sheet has Revive too, and the log does not say who revived",
+   "severity": "low",
+   "area": "marks-scars",
+   "devices": [
+    "phone 390x844"
+   ],
+   "what_happens": "An incapacitated member records the scar and presses Revive on their own trauma record; one press revives, and the log line is the same as the Lightkeeper's. FAQ.md:137 and :147 describe Revive as the Lightkeeper's.",
+   "steps": "Incapacitate a member, record the scar on the player's desk, press Revive there.",
+   "root_cause": "frontend/src/components/pc/InvestigatorDossier.jsx:1466-1473 shows Revive whenever !readOnly.",
+   "fix": "After Robert's call: hide Revive on the player's sheet, or keep it, update the FAQ and name who revived in the log.",
+   "effort": "S",
+   "evidence": "seen in side check",
+   "members": [
+    "R041"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/death/shots/34_bram_self_revive.png"
+   ]
+  },
+  {
+   "key": "lk-second-tab-stale-request",
+   "title": "A second Lightkeeper tab keeps the join-request pop-up and Requests count after the other tab approved",
+   "severity": "low",
+   "area": "gm-desk",
+   "devices": [
+    "laptop",
+    "tablet"
+   ],
+   "what_happens": "With the Lightkeeper's desk in two tabs, approving in tab A leaves tab B showing the pop-up (now 'Already has an investigator here.') and 'Requests 1' until a reload, though its roster has the investigator. The control does the same.",
+   "steps": "Open the Lightkeeper's desk in two tabs, have a player ask to join, approve in one tab, look at the other.",
+   "root_cause": "OperationsPanel pending list is not cleared by the approval frame (OperationsPanel.jsx:88 intends it).",
+   "fix": "Drop the card, pop-up and count in every Lightkeeper tab when the request is answered elsewhere.",
+   "effort": "S",
+   "evidence": "seen in re-check",
+   "members": [
+    "R013",
+    "R018"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/lkdesk/out_main/two_B_after.png"
+   ]
+  },
+  {
+   "key": "let-in-button-name",
+   "title": "A let-in investigator's Play button has no 'Play' in its accessible name",
+   "severity": "low",
+   "area": "accessibility",
+   "devices": [
+    "phone 390x844"
+   ],
+   "what_happens": "After an approval the Registry row button is named 'Wren Hollis Saltmere Verify LET IN'; the visible PLAY arrow is not in the name, though the control build's button ended in '... PLAY'.",
+   "steps": "Approve a waiting player and read the Registry row button's name.",
+   "root_cause": "The 60.4 stamp text replaced the Play label in the button's name (campaignSelector).",
+   "fix": "Keep 'Play' in the name, with the stamp as extra text.",
+   "effort": "S",
+   "evidence": "seen in re-check",
+   "members": [
+    "R020"
+   ],
+   "shots": [
+    "/home/user/pt4/verify/notebook/out_main/hub3_reload.png"
+   ]
+  },
+  {
+   "key": "websocket-doc-says-no-reconnect",
+   "title": "WEBSOCKET.md still says the desk never reconnects",
+   "severity": "low",
+   "area": "connection-sync",
+   "devices": [],
+   "what_happens": "docs/refactor/WEBSOCKET.md section 7 (about line 321) and risk R7 (about line 358) say there is no reconnect; gameStore.js reconnects with backoff 1, 2, 4, 8, 15 s and a heartbeat, and every desk came back within 16 s.",
+   "steps": "Read the doc against gameStore.js.",
+   "root_cause": "Stale documentation.",
+   "fix": "Update section 7 and R7.",
+   "effort": "S",
+   "evidence": "seen in side check",
+   "members": [
+    "R055"
+   ],
+   "shots": []
+  }
+ ],
+ "repeats": [
+  {
+   "key": "sketch-label-scale",
+   "issue": "#60: 60.10 (partly fixed)",
+   "what_this_run_added": "Labels are about 1.4x larger in the editor and on the card on laptop and phone; 'Keep drawing in view' could not be named as a separate behaviour. Line stays open."
+  },
+  {
+   "key": "signin-google-frame",
+   "issue": "#60: 60.24",
+   "what_this_run_added": "Sign-in and sign-up now fit in 768 px at 1366x768. The Google button and frame still cannot render in the sandbox (no VITE_GOOGLE_CLIENT_ID), so the frame name and 60.25 were read in code only."
+  },
+  {
+   "key": "newcomer-misses-earlier-log",
+   "issue": "#29 (tell a newcomer what the circle already holds)",
+   "what_this_run_added": "F021 (logged as a bug): Ada's log lacks Bram's approval because Bram was approved before Ada joined; lines go only to members active at that moment (manager.broadcast_campaign). Working as built; the Lightkeeper's log had the line (F033)."
+  },
+  {
+   "key": "illumination-hint-at-12",
+   "issue": "#60 idea illumination-track-purpose",
+   "what_this_run_added": "Three players (phone, laptop, tablet) at 6 of 12 after End Assignment could not tell what 12 brings or what Later would do (F112, F117, F119)."
+  },
+  {
+   "key": "finalize-armed-no-preview",
+   "issue": "Decided: fix7 69.4 and the fix5 wording rule",
+   "what_this_run_added": "The armed Finalize counts empty parts and previews nothing (F017, F032), as decided. One small new point: the '4 relationships still waiting' note disappears while Finalize is armed, though it is not a loss warning."
+  },
+  {
+   "key": "illumination-milestones-on-lk-ring",
+   "issue": "Decided: fix6 #67 (pips keep today's labels) and #16 help on demand",
+   "what_this_run_added": "F003: gold milestones 3, 6, 9 have no legend on the Lightkeeper's ring; the About Illumination i explains them (praise F086). Adding 'milestone' to the aria-label would be harmless."
+  },
+  {
+   "key": "player-edits-own-marks",
+   "issue": "Decided: fix5 #64 detection, not prevention",
+   "what_this_run_added": "F082 asks for what fix5 decision 1 deliberately chose. Nothing new, except that the log line for text fields is unreadable (edit-sheet-log-truncates-identically)."
+  }
+ ],
+ "not_reproduced": [
+  {
+   "key": "burn-preview-omits-drive-die",
+   "title": "Burn and reroll previews fewer dice than the roll had (F055, F065, F075, F081)",
+   "why": "By design. Reproduced exactly on a fresh copy, but a reroll throws the action rating alone (FAQ.md:74), DESIGN.md:489 specifies the pool line with an i that says so, and the i reads 'A reroll throws the action rating alone. Drive spent and dice an ability added are not thrown again.' Issue #16 keeps help on demand. Four reports from three seats show the bare line reads like a mistake, so a wording call is offered to Robert."
+  },
+  {
+   "key": "death-defy-focus",
+   "title": "A keyboard user needed 11 Shift+Tabs to reach Death Defy's Use (F058)",
+   "why": "Suspected harness artifact. AbilityMarkOffer.jsx 124-145 moves focus to the offer's primary button on arrival; the seat blurred first and then walked from the blurred element. Check arrival focus on a real browser before acting."
+  },
+  {
+   "key": "pips-before-roll-conflicting",
+   "title": "A drive spend shows on the pips only at roll time (F036)",
+   "why": "Conflicting reports from the same seat on the same build: in round 3 (F073) the pips dropped with 'Intuition spent' before the roll. Likely a look taken before the re-render."
+  },
+  {
+   "key": "great-wards-persist-unexplained (bug claim)",
+   "title": "F106: Great Wards' +1d should clear at End Assignment",
+   "why": "By the rules. p. 27 says the ward sits on one person at a time until moved, and characters.warded_by_id is kept by design (RULES_CHECK.md:238). The missing explanation is kept as a UX item."
+  },
+  {
+   "key": "relationship-two-way-unclear (F025)",
+   "title": "Bram's proposal showed 'Confirmed by you both' at once",
+   "why": "Timing artifact: Ada accepted in between, and seats acted minutes apart. The rest of the cluster (no explanation of two-way pairs) is kept as UX."
+  },
+  {
+   "key": "lk-full-track-no-scar-hint (rules doubt)",
+   "title": "F092: the third mark of a kind should make a scar",
+   "why": "The doubt came from the harness handbook (play4/README.md:120), which is wrong. The site follows FAQ.md and the book: a mark on a full track of 3 brings the scar. Only the missing hint is kept."
+  },
+  {
+   "key": "non-combatant-silent-refusal (R029 half)",
+   "title": "Behind Me vanishes on reconnect after a restart",
+   "why": "Designed expiry (decisions_fix6 1). Only the silence of the Non-Combatant refusal is kept."
+  },
+  {
+   "key": "recheck-not-exercised (R008)",
+   "title": "A mark at 3 of 3 gave no scar form",
+   "why": "Consistent with the rules: the form comes on the fourth mark (FAQ 'What happens on the 4th mark?')."
+  }
+ ],
+ "ux": [
+  {
+   "key": "lk-cannot-see-open-burn",
+   "title": "The Lightkeeper cannot see that a player's burn is still open, so her open roll silently ends it",
+   "severity": "medium",
+   "area": "dice",
+   "devices": [
+    "laptop 1440x900",
+    "laptop 1366x768"
+   ],
+   "what_happens": "Cass failed Hide and said at the table she might burn after hearing the Lightkeeper, who then made an open roll, which settles the player's last roll (FAQ.md:76, designed). On a fresh copy, with a player's burn open, the Lightkeeper's page has no word for burn, resist, reroll or settle: no roster marker, nothing by Roll. Her open roll ended it and the player's tray read 'Roll settled'.",
+   "suggestion": "Client only: keep a tableRollOpen flag in gameStore for the newest player roll below full success; while it is set and Secret is off, show one short line by Roll ('An open roll ends Iris's chance to burn on Survey.') or a small 'Burn open' mark on the felt slip.",
+   "evidence": "verified",
+   "members": [
+    "F047",
+    "F060"
+   ]
+  },
+  {
+   "key": "touch-targets-under-44",
+   "title": "Several in-play controls are under 44px on touch: post-roll Use and Skip, scar form choices, relationship Accept and the drive picker",
+   "severity": "medium",
+   "area": "phone-tablet",
+   "devices": [
+    "phone 390x844",
+    "tablet 820x1180"
+   ],
+   "what_happens": "Post-roll Use and Skip (Flourish, Bending Spoons, Learn from My Mistakes) are 50x22 and 46x22 (RollModifications.jsx 116-135); the scar form's 18 Lower/Raise rows are 28px with 14px radios (ScarModal.jsx); Accept on a relationship paper is 39px on a touch tablet; the NER/CUN/INT picker on Non-Combatant and Adrenaline Rush cards is 30px (AbilityMarkOffer.jsx 244-258). Neighbouring primary buttons are 44px.",
+   "suggestion": "One sweep adding [@media(pointer:coarse)]:min-h-[44px] to these controls.",
+   "evidence": "seen in re-check",
+   "evidence_detail": "re-check (R031) and two side checks (R042, R043, R053)",
+   "members": [
+    "R031",
+    "R042",
+    "R043",
+    "R053"
+   ]
+  },
+  {
+   "key": "lk-roster-card-no-held-mark",
+   "title": "The Lightkeeper's roster card shows nothing while a dealt mark is held for Death Defy or a soak",
+   "severity": "low",
+   "area": "gm-desk",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "After dealing a Death Defy holder a Bleed mark, the roster card stays blank under role and specialty; only the open sheet says 'Bleed mark held for Death Defy.' Low because the offer lasts about 30 s and she has just dealt it.",
+   "suggestion": "Add held_marks to the roster item (campaigns.py to_item) and a line in glanceOf() (InvestigatorBusinessCard.jsx:22-33) such as 'Bleed mark held: Death Defy?'.",
+   "evidence": "verified",
+   "members": [
+    "F050"
+   ]
+  },
+  {
+   "key": "lk-sheet-no-ability-used",
+   "title": "No desk shows that a once-per-assignment ability such as Death Defy is used, or ready again after End Assignment",
+   "severity": "low",
+   "area": "abilities",
+   "devices": [
+    "laptop 1440x900",
+    "desktop 1920x1080",
+    "laptop 1366x768"
+   ],
+   "what_happens": "After Death Defy was used, neither the Lightkeeper's copy nor the player's dossier showed a spent state (the finding's premise that the player sees 'Used this assignment' was wrong: that line is only for abilities with a Use button). After End Assignment players could not see that Learn from My Mistakes or Death Defy was ready again (F108, F115, cluster ability-ready-state-unshown).",
+   "suggestion": "In the dossier's ability panel show 'Used this assignment.' (and optionally 'Ready') for once-per-assignment abilities from ability_uses, on both the player's and the read-only copy. ability_uses is already serialized.",
+   "evidence": "verified",
+   "members": [
+    "F066",
+    "F108",
+    "F115"
+   ]
+  },
+  {
+   "key": "add-illumination-one-press",
+   "title": "Add N Illumination is a single press with no confirm while reports are unfiled, and only one add is allowed per assignment",
+   "severity": "low",
+   "area": "circle-page",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "Reproduced: with no report filed, one press of ADD 2 ILLUMINATION applied at once and the Not filed line vanished; a second add is refused (409). As documented (FAQ.md:248) and as the control built it, and keys filed later can still be added with +1. But decisions_fix4 5 speaks of naming non-filers 'in their existing confirm step', and Add has none. The Lightkeeper waited on purpose for fear of losing keys.",
+   "suggestion": "Robert's call. If he wants a confirm: render ConfirmAction only while some reports are unfiled ('Press again to add 2 now. Not filed: ...' / 'Add') and keep one press when all are filed; update FAQ.md:248.",
+   "evidence": "verified",
+   "members": [
+    "F090"
+   ]
+  },
+  {
+   "key": "formation-parts-no-done-state",
+   "title": "The formation papers show players no done mark per part, and the phone strip's numerals do not name the parts",
+   "severity": "low",
+   "area": "circle-formation",
+   "devices": [
+    "desktop 1920x1080",
+    "phone 390x844",
+    "tablet 820x1180"
+   ],
+   "what_happens": "Part headings and the phone's I to VI strip show no tick when this player has answered a part; the strip names are screen-reader only. Overstated as filed: the Lightkeeper's 'Circle formation so far' panel already shows per part who has voted and who owes an answer, and the log staying silent on votes is intended.",
+   "suggestion": "Give Section a done prop and draw a TickMark when this player answered the part; mirror it on the phone strip and show a short name beside the numeral where it fits.",
+   "evidence": "verified",
+   "members": [
+    "F020",
+    "F023",
+    "F028"
+   ]
+  },
+  {
+   "key": "live-desk-burn-after-restart",
+   "title": "A desk that reconnects after a restart keeps offering Burn and reroll for a roll the server no longer holds, and the refusal wording misleads",
+   "severity": "low",
+   "area": "dice",
+   "devices": [
+    "laptop 1366x768"
+   ],
+   "what_happens": "After a live reconnect the tray still offers Burn (and Flourish). Burn is refused with 'Burn a resistance after a roll of that action.' (the player did roll that action), then reads 'Roll settled'. Nothing is spent. Same on the control.",
+   "suggestion": "On reconnect drop burn and post-roll offers when the server holds no shown roll, or say the roll was lost to a restart. Fix with gilded-keep-after-restart-shows-outcome.",
+   "evidence": "seen in re-check",
+   "evidence_detail": "re-check (R030) and the timing side check (R051, R057)",
+   "members": [
+    "R030",
+    "R051",
+    "R057"
+   ]
+  },
+  {
+   "key": "keep-dice-shimmy-on-touch",
+   "title": "Keep-a-die dice keep shimmying on touch because the still state relies on hover",
+   "severity": "low",
+   "area": "dice",
+   "devices": [
+    "phone 390x844",
+    "tablet"
+   ],
+   "what_happens": "60.5 is partly fixed (dice aria-hidden, slip lines are the controls, focus on the first line). With a mouse the shimmy stops on hover; a finger has no hover, so the dice keep moving about 3px.",
+   "suggestion": "Stop the animation while a choice waits on coarse pointers (DiceTray.jsx hover:animate-none plus a pointer:coarse rule).",
+   "evidence": "seen in re-check",
+   "members": [
+    "R006",
+    "R007"
+   ]
+  },
+  {
+   "key": "notebook-contents-phone-density",
+   "title": "The Notebook Contents page on a phone shows 4 lines where 5 fit (a small regression against the control)",
+   "severity": "low",
+   "area": "notebook",
+   "devices": [
+    "phone 390x844",
+    "phone 360 wide"
+   ],
+   "what_happens": "With 31 entries Contents shows 4 lines per page (8 pages) with about 120px blank; the control showed 5.",
+   "suggestion": "Recompute lines per page from the space left under the sticky header.",
+   "evidence": "seen in re-check",
+   "members": [
+    "R022"
+   ]
+  },
+  {
+   "key": "let-in-mark-browser-only",
+   "title": "The 'Let in: press Play' mark lives only in the browser that saw the approval",
+   "severity": "low",
+   "area": "hub",
+   "devices": [
+    "phone",
+    "tablet"
+   ],
+   "what_happens": "60.4 works in the browser that was on the hub during the approval (survives a reload, goes after Play). A hub opened only after the approval, or a second device, shows no mark.",
+   "suggestion": "Derive the mark from the server (approved and never played) rather than browser storage.",
+   "evidence": "seen in re-check",
+   "members": [
+    "R019",
+    "R026"
+   ]
+  },
+  {
+   "key": "owed-scar-banner-says-full",
+   "title": "The owed-scar banner says the track 'is full' over a track that shows 0 of 3",
+   "severity": "low",
+   "area": "marks-scars",
+   "devices": [
+    "phone 390x844"
+   ],
+   "what_happens": "After a fourth Brain mark and Decide later: 'A scar is waiting. Bram Holt's Brain track is full.' while the track above reads 0 of 3 (it was cleared). The scar form words this correctly.",
+   "suggestion": "Reuse the scar form's wording in the banner.",
+   "evidence": "seen in side check",
+   "members": [
+    "R044"
+   ]
+  },
+  {
+   "key": "advancement-dialog-track-full-wording",
+   "title": "The advancement dialog says 'The Illumination track is full' after the track rolled over",
+   "severity": "low",
+   "area": "advancement-wrap",
+   "devices": [
+    "phone",
+    "other sizes"
+   ],
+   "what_happens": "After the advance every desk reads 2 / 12, but the dialog header says 'The Illumination track is full: 2 advancements for Ada Lark.'",
+   "suggestion": "'2 advancements for Ada Lark.'",
+   "evidence": "seen in side check",
+   "members": [
+    "R033"
+   ]
+  },
+  {
+   "key": "advance-log-no-refill",
+   "title": "The circle advance writes no line saying the resources refilled",
+   "severity": "low",
+   "area": "advancement-wrap",
+   "devices": [
+    "laptop",
+    "wide"
+   ],
+   "what_happens": "Advance refills Stitch, Refresh and Train to 1 plus members (1/2/0 to 3/3/3; 2/3/1 to 5/5/5) but the only log line is '<circle> has advanced and gained <ability>!'. The manual Refill is gone (#66.4), so the Lightkeeper looks for confirmation.",
+   "suggestion": "Add a clause: '... and its resources are back to 5 each.'",
+   "evidence": "seen in re-check",
+   "evidence_detail": "re-check (R003) and the advancement side check (R036)",
+   "members": [
+    "R003",
+    "R036"
+   ]
+  },
+  {
+   "key": "advancement-receipt-log-wording",
+   "title": "The advancement receipt and the log word the drive pick differently",
+   "severity": "low",
+   "area": "advancement-wrap",
+   "devices": [
+    "all"
+   ],
+   "what_happens": "Receipt '+2 nerve drive', log 'gained +2 Nerve drive.'",
+   "suggestion": "One wording, capitalised.",
+   "evidence": "seen in side check",
+   "members": [
+    "R035"
+   ]
+  },
+  {
+   "key": "illumination-past-12",
+   "title": "+1 Illumination at 12 stores 13 while the page still shows 12 / 12",
+   "severity": "low",
+   "area": "circle-page",
+   "devices": [
+    "laptop"
+   ],
+   "what_happens": "The +1 control makes the circle hold 13 while heading and ring read 12 / 12; Add Illumination shows '(+2 carried over)' but this path does not.",
+   "suggestion": "Show the carry-over as the Add path does, or stop +1 at 12 (Robert's call).",
+   "evidence": "seen in re-check",
+   "members": [
+    "R001"
+   ]
+  },
+  {
+   "key": "ally-card-no-mark-named",
+   "title": "Behind Me and Premonitions cards do not say which mark they answer",
+   "severity": "low",
+   "area": "abilities",
+   "devices": [
+    "phone",
+    "tablet"
+   ],
+   "what_happens": "Two cards in turn both read 'Take Finn Ash's mark instead (spend 1 Nerve).' while the log names Body and Brain.",
+   "suggestion": "Name the track on the card ('Take Finn Ash's Brain mark instead').",
+   "evidence": "seen in side check",
+   "members": [
+    "R054"
+   ]
+  },
+  {
+   "key": "stale-tab-confirm-silent",
+   "title": "A stale player tab keeps a live-looking Confirm advancement that does nothing and says nothing",
+   "severity": "low",
+   "area": "advancement-wrap",
+   "devices": [
+    "tablet 820x1180"
+   ],
+   "what_happens": "With the desk taken by a second tab, the first tab's Confirm sends no frame and shows no message. Picks are safe.",
+   "suggestion": "Disable Confirm or point to 'Use this tab' in one line.",
+   "evidence": "seen in side check",
+   "members": [
+    "R034"
+   ]
+  },
+  {
+   "key": "superseded-lk-tab-no-way-back",
+   "title": "A superseded Lightkeeper tab goes dead with no way to take the desk back",
+   "severity": "low",
+   "area": "connection-sync",
+   "devices": [
+    "laptop"
+   ],
+   "what_happens": "The first tab shows a banner and disabled controls; only a reload recovers it. The player desk has 'Use this tab'.",
+   "suggestion": "Give the Lightkeeper's banner the same 'Use this tab'.",
+   "evidence": "seen in re-check",
+   "members": [
+    "R016"
+   ]
+  },
+  {
+   "key": "join-popup-size",
+   "title": "The join-request pop-up covers the bottom right of the desk and most of a phone screen",
+   "severity": "low",
+   "area": "gm-desk",
+   "devices": [
+    "laptop 1440x900",
+    "phone 390x844"
+   ],
+   "what_happens": "At 1440x900 it covers the Activity Log and Pass Notes; at 390x844 the lower half, with Reject wrapping.",
+   "suggestion": "A smaller toast with Approve, View and Later; the full card behind View.",
+   "evidence": "seen in re-check",
+   "members": [
+    "R017"
+   ]
+  },
+  {
+   "key": "closed-request-note-stays",
+   "title": "A closed request's note stays when a different player's request arrives",
+   "severity": "low",
+   "area": "gm-desk",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "The withdrawn request's sheet keeps 'no longer waiting' when another player asks; only the same investigator asking again clears it.",
+   "suggestion": "Any new request clears the note, as 45.7 intended.",
+   "evidence": "seen in re-check",
+   "members": [
+    "R014"
+   ]
+  },
+  {
+   "key": "about-about-reset",
+   "title": "The Reset info button on the Lightkeeper's sheet is named 'About About Reset'",
+   "severity": "low",
+   "area": "accessibility",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "The label already starts with About; seen in the re-check and in blind play.",
+   "suggestion": "GMCharacterSheet.jsx about line 379: pass 'Reset'.",
+   "evidence": "seen in re-check",
+   "members": [
+    "R015",
+    "F093"
+   ]
+  },
+  {
+   "key": "refused-edit-double-alert",
+   "title": "A refused sheet edit shows its reason twice as role=alert",
+   "severity": "low",
+   "area": "accessibility",
+   "devices": [
+    "tablet 820x1180"
+   ],
+   "what_happens": "'Rux Ollinor is dead: the sheet is a record.' appears in the dialog and under the sheet, so a screen reader hears it twice. The draft is kept.",
+   "suggestion": "Only the dialog announces it.",
+   "evidence": "seen in re-check",
+   "members": [
+    "R011"
+   ]
+  },
+  {
+   "key": "chapter-house-draft-hides-save",
+   "title": "A member's unsaved Chapter House draft hides another member's newer save, and leaving the box overwrites it",
+   "severity": "low",
+   "area": "circle-formation",
+   "devices": [
+    "phone 390x844"
+   ],
+   "what_happens": "Documented behind the 'Shared' i, but nothing tells the typing member at that moment.",
+   "suggestion": "Show 'Bram changed this' under the box when a newer save arrives during a draft.",
+   "evidence": "seen in re-check",
+   "members": [
+    "R002"
+   ]
+  },
+  {
+   "key": "join-dialog-buttons-indent",
+   "title": "The Join dialog buttons are indented on a tablet",
+   "severity": "low",
+   "area": "joining",
+   "devices": [
+    "tablet 820x1180"
+   ],
+   "what_happens": "Cancel sits about 70px in from the fields' left edge.",
+   "suggestion": "Align to the dialog's padding.",
+   "evidence": "seen in re-check",
+   "members": [
+    "R021"
+   ]
+  },
+  {
+   "key": "great-wards-persist-unexplained",
+   "title": "Great Wards stays on the warded ally after End Assignment, as the rules say, but nothing tells either player",
+   "severity": "low",
+   "area": "abilities",
+   "devices": [
+    "phone 390x844",
+    "tablet 820x1180"
+   ],
+   "what_happens": "Bram still had 'Great Wards (against a phenomenon: +1d)' on Move after the end and read it as leftover state; Dev saw no sign of where the ward sat. Correct by p. 27.",
+   "suggestion": "On both sheets say who holds the ward ('Warded by Dev until moved').",
+   "evidence": "unverified",
+   "members": [
+    "F106",
+    "F120"
+   ]
+  },
+  {
+   "key": "great-wards-in-play-state",
+   "title": "After Great Wards is used, neither sheet says what the ward does or who holds it, and the target picker stays live",
+   "severity": "low",
+   "area": "abilities",
+   "devices": [
+    "tablet 820x1180"
+   ],
+   "what_happens": "A faint 'Used' beside a still-enabled picker.",
+   "suggestion": "Name the holder and effect; disable the picker once used.",
+   "evidence": "unverified",
+   "members": [
+    "F085"
+   ]
+  },
+  {
+   "key": "relationship-two-way-unclear",
+   "title": "Formation relationships run one per direction, and the papers do not explain it or why fields are greyed",
+   "severity": "low",
+   "area": "circle-formation",
+   "devices": [
+    "tablet 820x1180",
+    "laptop 1366x768"
+   ],
+   "what_happens": "The text box and Propose stay disabled until a type is picked (RelationshipNegotiation.jsx l.70), with no reason shown; nothing says each direction is its own relationship.",
+   "suggestion": "A hint behind the i, and a placeholder 'Pick a relationship first'.",
+   "evidence": "unverified",
+   "members": [
+    "F027",
+    "F031",
+    "F025"
+   ]
+  },
+  {
+   "key": "lk-full-track-no-scar-hint",
+   "title": "At 3 of 3 marks the Lightkeeper's sheet says 'Able to act' with no hint that the next mark brings a scar",
+   "severity": "low",
+   "area": "marks-scars",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "Cass at Body 3 of 3 read 'Status: Able to act'. The player's own Body button already says the next mark brings a scar; the Lightkeeper's copy does not.",
+   "suggestion": "Reuse the player's line on the Lightkeeper's copy.",
+   "evidence": "unverified",
+   "members": [
+    "F092"
+   ]
+  },
+  {
+   "key": "keys-bare-names",
+   "title": "Illumination Keys on the player's report are bare names, and players see no running tally",
+   "severity": "low",
+   "area": "circle-page",
+   "devices": [
+    "desktop 1920x1080"
+   ],
+   "what_happens": "'Mentor an Ally', 'Reference Research', 'Make a Plan' with no description; only the Lightkeeper sees the questions plus keys total.",
+   "suggestion": "Optional one-line descriptions behind an i; consider showing players the running total.",
+   "evidence": "unverified",
+   "members": [
+    "F095"
+   ]
+  },
+  {
+   "key": "phone-report-form-far-down",
+   "title": "On a phone the report form starts about 700px down the Circle page with no jump to it",
+   "severity": "low",
+   "area": "phone-tablet",
+   "devices": [
+    "phone 390x844",
+    "tablet 820x1180"
+   ],
+   "what_happens": "Charter and ring fill the first screen; the form is two screens down (also noted by Dev on the tablet).",
+   "suggestion": "While reports are open, put the form first or add a jump from the menu dot and log line.",
+   "evidence": "unverified",
+   "members": [
+    "F098"
+   ]
+  },
+  {
+   "key": "circle-spend-not-announced",
+   "title": "Nothing announces that a circle spend went through, and the Circle page does not show a held Train die",
+   "severity": "low",
+   "area": "circle-page",
+   "devices": [
+    "desktop 1920x1080",
+    "tablet 820x1180"
+   ],
+   "what_happens": "After the confirm the status region is empty; only the counters change. The held Train die shows only on the Investigator tab. (The one-verb 'Spend' button is the fix5 rule, not a finding.)",
+   "suggestion": "A status line after the spend; a 'Train die held' note on the Circle page.",
+   "evidence": "unverified",
+   "members": [
+    "F076",
+    "F088"
+   ]
+  },
+  {
+   "key": "lk-secret-roll-stays-ticked",
+   "title": "The Lightkeeper's Secret box stays ticked after a secret roll",
+   "severity": "low",
+   "area": "dice",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "The next roll meant for everyone would go secret; only the button wording changes. (Pass Notes keeping the recipient is decided, fix7 60.9.)",
+   "suggestion": "Reset Secret after a roll, or make its armed state loud.",
+   "evidence": "unverified",
+   "members": [
+    "F048"
+   ]
+  },
+  {
+   "key": "empty-dispatch-labels",
+   "title": "An empty dispatch shows bare 'Location:' and 'Atmosphere:' labels (a screen reader hears 'none')",
+   "severity": "low",
+   "area": "player-desk",
+   "devices": [
+    "desktop 1920x1080",
+    "laptop 1366x768"
+   ],
+   "what_happens": "After End Assignment clears the dispatch, on the note card and the Circle page.",
+   "suggestion": "One empty-state line, 'No dispatch yet'.",
+   "evidence": "unverified",
+   "members": [
+    "F109",
+    "F117"
+   ]
+  },
+  {
+   "key": "dispatch-card-small-nits",
+   "title": "Dispatch card nits: End Assignment live before any dispatch, 12-hour time beside a 24-hour log, a changing form number, an old body under a new location",
+   "severity": "low",
+   "area": "gm-desk",
+   "devices": [
+    "laptop 1440x900",
+    "desktop 1920x1080"
+   ],
+   "what_happens": "End's armed popover covers the '0 / 2000' counter on a new campaign; 'Dispatched at 10:30 PM' beside [22:30]; No. 8318 became No. 1836; a resend with only a new Location keeps the previous body.",
+   "suggestion": "One time format, a stable form number, a nudge to update the body.",
+   "evidence": "unverified",
+   "members": [
+    "F002",
+    "F034",
+    "F057"
+   ]
+  },
+  {
+   "key": "spending-open-after-end",
+   "title": "Spending stays open after End Assignment, and neither its i nor the receipt says so",
+   "severity": "low",
+   "area": "advancement-wrap",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "Consistent with fix4 2, but nothing decides whether the open state should survive the end. Players spent Stitch and Refresh in downtime as a result.",
+   "suggestion": "Say so in End's i, or close spending (Robert's call).",
+   "evidence": "unverified",
+   "members": [
+    "F104"
+   ]
+  },
+  {
+   "key": "report-card-no-amended-mark",
+   "title": "The Lightkeeper's report card does not show that a report was amended",
+   "severity": "low",
+   "area": "advancement-wrap",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "Same REPORT FILED stamp; only the log says so.",
+   "suggestion": "'Amended' and the time on the card.",
+   "evidence": "unverified",
+   "members": [
+    "F105"
+   ]
+  },
+  {
+   "key": "amend-without-change-logged",
+   "title": "Amending a report with only trailing newlines sends and logs an amendment",
+   "severity": "low",
+   "area": "advancement-wrap",
+   "devices": [
+    "laptop 1366x768"
+   ],
+   "what_happens": "'Cass Moreau amended their assignment report' with nothing changed.",
+   "suggestion": "Trim and compare; say 'Nothing changed.'",
+   "evidence": "unverified",
+   "members": [
+    "F101"
+   ]
+  },
+  {
+   "key": "adrenaline-offer-phone-abbrev",
+   "title": "On a phone the Adrenaline Rush offer covers half the screen and names its drives 'Ner/Cun/Int'",
+   "severity": "low",
+   "area": "abilities",
+   "devices": [
+    "phone 390x844"
+   ],
+   "what_happens": "Abbreviated accessible names; 'Paused · 30s' unexplained; Use disabled until a drive is picked with no hint. (Picker height is in touch-targets-under-44.)",
+   "suggestion": "Full drive names at least in the accessible name; 'Pick a drive' hint.",
+   "evidence": "unverified",
+   "members": [
+    "F071"
+   ]
+  },
+  {
+   "key": "phone-roll-bar-crops-dice",
+   "title": "On a phone the roll bar crops the dice",
+   "severity": "low",
+   "area": "phone-tablet",
+   "devices": [
+    "phone 390x844"
+   ],
+   "what_happens": "A 3-die Move showed two cropped dice; the third was hidden. ('Nerve spent' text is 60.11 working.)",
+   "suggestion": "Fit all dice or open the tray for a choice.",
+   "evidence": "unverified",
+   "members": [
+    "F038"
+   ]
+  },
+  {
+   "key": "burn-no-keep-choice",
+   "title": "A burn offer has no 'keep this result' button",
+   "severity": "low",
+   "area": "phone-tablet",
+   "devices": [
+    "phone 390x844"
+   ],
+   "what_happens": "Only Burn and reroll is offered. (The tab label dropping the burn note while the Dice tab is open is the 60.8 design.)",
+   "suggestion": "Optional 'Keep the result' that settles the roll.",
+   "evidence": "unverified",
+   "members": [
+    "F053"
+   ]
+  },
+  {
+   "key": "keep-slip-equal-failures",
+   "title": "The Keep slip offers two Failure picks and only one says why it differs",
+   "severity": "low",
+   "area": "dice",
+   "devices": [
+    "laptop 1366x768"
+   ],
+   "what_happens": "Gilded 1 and a 3 both read Failure; only the gilded one mentions the refund.",
+   "suggestion": "Say both fail and the gilded one refunds.",
+   "evidence": "unverified",
+   "members": [
+    "F041"
+   ]
+  },
+  {
+   "key": "tray-pool-breakdown",
+   "title": "The tray says 'Sense +2d (Extend Your Senses): 4 dice' with no split of drive and ability dice",
+   "severity": "low",
+   "area": "dice",
+   "devices": [
+    "tablet 820x1180"
+   ],
+   "what_happens": "Lumped +2d while the sheet shows Intuition +1d and the ability separately.",
+   "suggestion": "'2 rating + 1 Intuition + 1 Extend Your Senses' behind the i.",
+   "evidence": "unverified",
+   "members": [
+    "F045"
+   ]
+  },
+  {
+   "key": "take-mark-beside-roll-tab",
+   "title": "Keyboard: each mark is two Tab stops and Take mark buttons come one Tab after the last Roll",
+   "severity": "low",
+   "area": "accessibility",
+   "devices": [
+    "laptop 1366x768"
+   ],
+   "what_happens": "About 45 stops; one Enter too many hands the player a mark.",
+   "suggestion": "One stop per mark; separate Take mark from the Roll buttons.",
+   "evidence": "unverified",
+   "members": [
+    "F061"
+   ]
+  },
+  {
+   "key": "illumination-heading-name",
+   "title": "The Illumination heading's accessible name includes the whole i text",
+   "severity": "low",
+   "area": "accessibility",
+   "devices": [
+    "tablet 820x1180"
+   ],
+   "what_happens": "'About Illumination Illumination: The gold-ringed pips are milestones ... 0 / 12'.",
+   "suggestion": "Name it 'Illumination 0 of 12'.",
+   "evidence": "unverified",
+   "members": [
+    "F087"
+   ]
+  },
+  {
+   "key": "formation-name-counter-unlabelled",
+   "title": "The name suggestion counter '2/5' does not say what it counts",
+   "severity": "low",
+   "area": "circle-formation",
+   "devices": [
+    "laptop 1366x768"
+   ],
+   "what_happens": "Bare '2/5' beside a disabled Suggest, no limit message.",
+   "suggestion": "'Your suggestions: 2 of 5' and a line at the limit.",
+   "evidence": "unverified",
+   "members": [
+    "F030"
+   ]
+  },
+  {
+   "key": "waiting-row-self-update-hint",
+   "title": "The waiting row's Check again reads as manual polling",
+   "severity": "low",
+   "area": "hub",
+   "devices": [
+    "laptop 1366x768",
+    "tablet 820x1180"
+   ],
+   "what_happens": "Both seats waited about 60 s unsure; the hint (45.18) is behind an i. The approval did arrive live (F019, F026).",
+   "suggestion": "Make the self-update visible in the button's area without a permanent subline, for example 'Checks by itself' as the status text.",
+   "evidence": "unverified",
+   "members": [
+    "F010",
+    "F014"
+   ]
+  },
+  {
+   "key": "photo-caption-under-title",
+   "title": "A photo's caption prints under the entry title, not under the photograph",
+   "severity": "low",
+   "area": "notebook",
+   "devices": [
+    "tablet 820x1180"
+   ],
+   "what_happens": "Twice; Photo and Sketch also grey out silently once an image is attached.",
+   "suggestion": "Caption under the polaroid; a hint why Photo and Sketch are off.",
+   "evidence": "unverified",
+   "members": [
+    "F043",
+    "F064"
+   ]
+  },
+  {
+   "key": "sketch-text-enter-log-alt",
+   "title": "In a sketch, Enter adds a line instead of placing the label; the log says only 'added a sketch'; the preview is named 'preview'",
+   "severity": "low",
+   "area": "notebook",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "Enter-for-newline is Excalidraw's default.",
+   "suggestion": "Say Escape places the label; name the entry in the log; a useful alt.",
+   "evidence": "unverified",
+   "members": [
+    "F069"
+   ]
+  },
+  {
+   "key": "field-notes-empty-toc",
+   "title": "Field Notes' contents is a blank ruled page on a new campaign",
+   "severity": "low",
+   "area": "notebook",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "No empty state; Add entry below the fold.",
+   "suggestion": "'No field entries yet'.",
+   "evidence": "unverified",
+   "members": [
+    "F004"
+   ]
+  },
+  {
+   "key": "lk-log-wording-nits",
+   "title": "Log wording: 'Lightkeeper rolled' beside 'The Lightkeeper dealt', and 'Secret : only you saw this'",
+   "severity": "low",
+   "area": "gm-desk",
+   "devices": [
+    "laptop 1440x900"
+   ],
+   "what_happens": "Mixed article, a stray space before the colon.",
+   "suggestion": "'The Lightkeeper rolled'; 'Secret: only you saw this'.",
+   "evidence": "unverified",
+   "members": [
+    "F049"
+   ]
+  },
+  {
+   "key": "creator-control-names",
+   "title": "Creator controls expose awkward names: Portrait is an sr-only file input, Raise buttons have no pressed state",
+   "severity": "low",
+   "area": "creator",
+   "devices": [
+    "desktop 1920x1080",
+    "laptop 1366x768"
+   ],
+   "what_happens": "Upload works; F007 may partly be the seat.js substring matcher hitting the hidden input.",
+   "suggestion": "One 'Add portrait' control; aria-pressed on the chosen Raise.",
+   "evidence": "unverified",
+   "members": [
+    "F007",
+    "F011"
+   ]
+  },
+  {
+   "key": "join-dialog-slow-open",
+   "title": "The Join dialog appears 2 to 3 s after Save and join with no busy state",
+   "severity": "low",
+   "area": "creator",
+   "devices": [
+    "desktop 1920x1080"
+   ],
+   "what_happens": "Timed by a harness seat; may be network or harness delay.",
+   "suggestion": "Show a busy state at once.",
+   "evidence": "unverified",
+   "members": [
+    "F006"
+   ]
+  }
+ ],
+ "ideas": [
+  {
+   "key": "report-line-behind-flip",
+   "title": "Mark the front of the Lightkeeper's report card when a line was filed",
+   "why": "The #58 line is only on the back; a mark on the front saves a flip.",
+   "members": [
+    "R004"
+   ],
+   "issue": "related to #58"
+  },
+  {
+   "key": "handwriting-only-in-join",
+   "title": "Offer the handwriting with the rest of the look in the creator",
+   "why": "It appears only in the Join dialog, so a Save for Later user never sees it. (The clipped fifth font is probably hidden scrollbars in headless Chromium; 60.15 was fixed.)",
+   "members": [
+    "F013"
+   ],
+   "issue": ""
+  },
+  {
+   "key": "stitch-with-no-marks",
+   "title": "Say when a Stitch would clear nothing",
+   "why": "Spend 1 Stitch arms normally with no marks to clear.",
+   "members": [
+    "F114"
+   ],
+   "issue": ""
+  },
+  {
+   "key": "clock-name-kept-at-zero",
+   "title": "Clear the clock name when tension drops to 0",
+   "why": "'The tide turns' stayed under 'Tension 0 of 4' until End Assignment cleared it (F103).",
+   "members": [
+    "F096"
+   ],
+   "issue": ""
+  }
+ ],
+ "keep": [
+  {
+   "title": "Joining and approval are quick and clear for both sides",
+   "members": [
+    "F001",
+    "F005",
+    "F015",
+    "F018",
+    "F019",
+    "F026"
+   ]
+  },
+  {
+   "title": "The character creator works on phone, laptop and tablet",
+   "members": [
+    "F008",
+    "F009",
+    "F012"
+   ]
+  },
+  {
+   "title": "Circle formation updates live on every device",
+   "members": [
+    "F022",
+    "F024",
+    "F029"
+   ]
+  },
+  {
+   "title": "Desks stay current without a reload, including a trip to the hub and back mid-scene",
+   "members": [
+    "F051",
+    "F056",
+    "F062",
+    "F072",
+    "F078",
+    "F080",
+    "F083",
+    "F107",
+    "F111",
+    "F116",
+    "F118"
+   ]
+  },
+  {
+   "title": "Rolls are correct against the book, safe against double presses, and work from the keyboard",
+   "members": [
+    "F035",
+    "F037",
+    "F039",
+    "F040",
+    "F044",
+    "F052",
+    "F054",
+    "F059",
+    "F070",
+    "F073",
+    "F074"
+   ]
+  },
+  {
+   "title": "The Lightkeeper's table tools chain together cleanly (marks, Death Defy hold, tension, clock, timer, dispatch, tally, End Assignment)",
+   "members": [
+    "F046",
+    "F067",
+    "F068",
+    "F091",
+    "F102",
+    "F103"
+   ]
+  },
+  {
+   "title": "Circle resources and abilities behave as described (arm then confirm, one spend on a double click, Train +1d, Great Wards, ring tooltip)",
+   "members": [
+    "F077",
+    "F084",
+    "F086",
+    "F089",
+    "F113"
+   ]
+  },
+  {
+   "title": "Reports and the notebook are solid (Markdown, photos, handwriting, private notes, report filing and Amend, nothing lost at End Assignment)",
+   "members": [
+    "F042",
+    "F063",
+    "F094",
+    "F097",
+    "F099",
+    "F100",
+    "F110",
+    "F121"
+   ]
+  },
+  {
+   "title": "From the checks: restarts are now survivable (log, held marks with the same offer id, timers, drafts, End confirm, reconnect with backoff) and the dead are a thorough record on REST and WebSocket",
+   "members": [
+    "recheck_state",
+    "side_timing",
+    "side_death"
+   ]
+  }
+ ],
+ "personas": {
+  "dm": "Ran the whole assignment on a 1440x900 laptop without stopping the table: sheets reviewed before approval, the seal, three dispatches, the hourglass with a named clock and a timer, open and secret rolls, marks, a sketch map in under a minute, reports, Add Illumination and End Assignment, with no console errors and no reload. Her complaints are all about seeing what players have pending: a burn still open (F047), a held mark on the roster card (F050), a spent Death Defy (F066), and Add Illumination being a single press, which she deliberately held back until every report was in (F090). She also found the charter editable during formation (F016).",
+  "ada": "The rules lawyer on a 1920x1080 desktop audited every number: pools, gilded choices, refunds, Learn from My Mistakes, the key rule and the +6 tally all matched the book, and the desk never went stale. What got in her way was wording: bare key names (F095), the burn preview's '2 dice' after a 3-dice roll (by design, but it read as a mistake), and no ready state for abilities between assignments.",
+  "bram": "The newcomer on a 390x844 phone found the roll flow, the gilded choice, Burn, Stitch and the report without help, and the desk stayed live. Friction was physical and explanatory: long scrolls to the report form and spends, a roll bar that crops the dice, an Adrenaline Rush card covering half the screen with 'Ner/Cun/Int', and a Great Wards bonus after the end that nothing explained.",
+  "cass": "The breaker on a 1366x768 laptop double-clicked, pressed Enter twice, reloaded with a choice pending and went to the hub and back mid-scene: nothing was duplicated or lost. She found the Edit sheet log truncation (F079), keyboard reach problems, and states between assignments that are invisible (Death Defy ready, what 12 brings, empty dispatch labels).",
+  "dev": "The note-keeper on an 820x1180 tablet lived in the notebook: Markdown, photographs and the handwriting font all posted cleanly and the preview matched. Friction: the photo caption under the title, relationship fields greyed with no reason, Great Wards' state before and after the end, and no hint of what Illumination 12 brings."
+ },
+ "decisions_for_robert": [
+  "death-lowers-resource-max-silently: when an investigator dies, do the dead count toward the 1 plus members maximum until a replacement is approved, or does the death lower the maximum and the pools at once as a release does (decisions_fix4 1)?",
+  "lk-charter-editable-before-seal: before the seal, should the Lightkeeper's name, chapter house and ability be read-only (decided in the papers), and when both wrote a chapter house, whose wins at the seal: the players' (suggested) or the Lightkeeper's (today)?",
+  "add-illumination-one-press: keep the single press the FAQ documents, or add a two-press confirm only while reports are unfiled, as the 'existing confirm step' wording of decisions_fix4 5 implies; either way the decision text and the build should agree.",
+  "leave-rejoin-resets-spend-count: does a member who leaves and returns in the same assignment keep their spend count (like a replacement under #41), or start again at 0?",
+  "player-can-self-revive: is Revive the Lightkeeper's only (remove it from the player's sheet), or allowed for the player under detection, not prevention (update the FAQ and name who revived in the log)?",
+  "dealt-mark-beside-held-death-defy: when a mark is dealt to a closed desk that already holds a Death Defy mark, should the held mark land first and its offer close (WEBSOCKET.md 4.5), or should the new mark join the offer?",
+  "lk-cannot-see-open-burn: may the Lightkeeper's Roll area show a short live note while a player's burn is open, or should it be only a mark on the felt slip to keep #16's help on demand?",
+  "burn-preview-omits-drive-die (by design): keep 'Survey: 2 dice' with its i, or relabel it 'Reroll: Survey, 2 dice' with the i unchanged, since four reports from three seats read it as a mistake?",
+  "spending-open-after-end: should spending stay open across End Assignment (and End's i say so), or close with the assignment?",
+  "illumination-past-12: should +1 Illumination stop at 12, or show the carried-over amount the way Add Illumination already does?"
+ ],
+ "top_fixes": [
+  "1. scar-owed-lost-on-restart: store the owed scar in the database so a restart cannot erase it (no decision needed).",
+  "2. death-lowers-resource-max-silently: after Robert's call, one maximum on every desk with a circle_update at a death, never a pool above it.",
+  "3. lk-charter-editable-before-seal: the players' chapter house wins at the seal, and the charter is read-only until then.",
+  "4. edit-sheet-log-truncates-identically: show the part that changed, so detection, not prevention works for text fields.",
+  "5. dead-can-file-report: add submit_assignment_report to DEAD_REFUSED and hide the form on a dead desk.",
+  "6. gilded-keep-after-restart-shows-outcome with live-desk-burn-after-restart: a reconnecting desk drops outcomes and burn offers the server no longer holds, and says so.",
+  "7. non-combatant-not-resent-on-reload, non-combatant-silent-refusal and non-combatant-logs-full-drive: treat Non-Combatant like the other ally offers on reload, reconnect and refusal, and log only what came back.",
+  "8. lk-cannot-see-open-burn with lk-roster-card-no-held-mark: show the Lightkeeper what a player still has pending (an open burn, a held mark).",
+  "9. touch-targets-under-44: one sweep of post-roll Use and Skip, scar form rows, relationship Accept and the drive picker.",
+  "10. lk-sheet-no-ability-used: a Used or Ready marker for once-per-assignment abilities on both desks (also closes F108 and F115)."
+ ],
+ "method_notes": [
+  "Fix the harness handbook: play4/README.md:120 says the third mark of a kind becomes a scar. The site and the book scar on the mark after a full track of 3. It produced a rules doubt (F092) and shaped the Lightkeeper's plan.",
+  "Blind play never reached a scar, an incapacitation or an advance (Cass ended at Body 3 of 3, Illumination 6 of 12), so those paths rest on the side checks only. Next time run two assignments, seed the circle near 12, or give the Lightkeeper a clear instruction to push one investigator past a full track.",
+  "Seats act minutes apart, so time windows reported in blind play (F025, F060) are mismeasured; keep timing claims to the side checks with real waits.",
+  "seat.js matches names as substrings (F007, Bram's 'button:Ner' with 5 matches): default to exact match or warn on several. Keyboard focus checks must record document.activeElement on arrival before any key (F058). seat.js run scripts lack touch on the tablet, and the scroll command did not move the desk's inner scroll container at 1366x768.",
+  "finding.js should check that screenshot paths exist: Ada gave wrong paths for F076 and F077 (the real files are shots/ada/061_r3stitch2.png and 062_r3sheet.png).",
+  "The Lightkeeper noticed her dice tray count go from 2 to 1 without touching it (round 2) and did not log it; watch for it next time.",
+  "For the next re-check, cover what was not exercised (recheck-not-exercised): the scar form from marks on a phone (45.15), focus in a second tab after a roll, #21 on Safari or a real phone, 60.25 and 60.24 with a test Google client id or on beta, the Lightkeeper's roster card while advancements wait, and #23 on the Lightkeeper's copy after a restart.",
+  "Checker pitfalls worth keeping in the shared lib: a Node socket on a character whose desk is open takes the desk over; SQL changes to reports_open do not broadcast (use the Lightkeeper's socket); restart_api.sh needs the database name when it is not the default."
+ ],
+ "coverage_notes": {
+  "key": "recheck-not-exercised",
+  "members": [
+   "R008",
+   "R009",
+   "R023",
+   "R024",
+   "R028",
+   "R037",
+   "R059"
+  ],
+  "summary": "Coverage gaps, no defect: see method_notes."
+ }
+}
