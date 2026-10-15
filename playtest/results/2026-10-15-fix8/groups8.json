@@ -1,0 +1,98 @@
+[
+ {
+  "name": "death",
+  "model": "opus",
+  "owns": "backend models.py, vtt/db.py, vtt/serializers.py, vtt/schemas.py, vtt/ws/handlers/character.py, vtt/ws/access.py, vtt/routers/campaigns.py, engine.py, vtt/assignment.py; single lines marks.py:298 and rolls.py:857; one block in vtt/ws/endpoint.py (88.7); frontend gm/desk/InvestigatorBusinessCard.jsx, pc/MainDeskView.jsx, campaignSelector/PlayerRegistryPage.jsx; tests/test_fix8_death.py plus field lists (test_investigators.py, tests/support.py, tests/data/openapi.json, test_00_startup.py); docs WEBSOCKET.md 4.4 revive row and section 5 character fields, FAQ.md :137, :147 and the release/rejoin paragraph, QUIRKS.md one line after :207",
+  "items": [
+   "#72 Scar owed lost on a server restart: store scar_pending column (see triage8.md #72)",
+   "#73 Death lowers the resource maximum silently: lower pools at death, circle_update, one log line (see triage8.md #73)",
+   "#76 Dead can file a report: DEAD_REFUSED entry in access.py only (see triage8.md #76)",
+   "#77 Leave and rejoin resets the spend count: keep it within the assignment (see triage8.md #77)",
+   "#82 Player can self-revive: server refusal and log line, access.py and character.py (see triage8.md #82)",
+   "88.1 Roster card shows no held mark: held_marks on roster item and glanceOf (see triage8.md 88.1)",
+   "88.7 Let in mark only in one browser: let_in column from the server (see triage8.md 88.7)",
+   "88.8 Owed-scar banner says the track is full (see triage8.md 88.8)",
+   "#84 Let-in Play button name lacks Play (see triage8.md #84)"
+  ]
+ },
+ {
+  "name": "restarts",
+  "model": "opus",
+  "owns": "vtt/ws/handlers/marks.py (all but :298), vtt/ws/handlers/rolls.py (all but :857), vtt/ws/endpoint.py activity_history line, store/gameStore.js (sole editor), pc/DiceVault.jsx, pc/dice/RollModifications.jsx, pc/dice/DiceTray.jsx, pc/dice/GmDiceControls.jsx, pc/AbilityMarkOffer.jsx; tests/test_fix8_restarts.py and in-place flips in test_ws_rolls.py, test_ws_connect.py; docs WEBSOCKET.md sections 1, 4.3, 4.5, 5, 7, 9, FAQ.md :18, :74, :78, :120, DESIGN.md :482-489, QUIRKS.md lines after :217",
+  "items": [
+   "#78 Refused gilded keep after restart shows an outcome; Burn after reconnect (see triage8.md #78)",
+   "#79 Non-Combatant offers: resend on reload, drop and explain after restart, full drive (see triage8.md #79)",
+   "#80 Server takes a roll over a waiting gilded choice (see triage8.md #80)",
+   "#81 Dealt mark beside a stored Death Defy hold: land held first, close offer (see triage8.md #81)",
+   "#83 Second Lightkeeper tab keeps a handled request (gameStore investigator_approved) (see triage8.md #83)",
+   "#85 WEBSOCKET.md says the desk never reconnects (see triage8.md #85)",
+   "#86 Lightkeeper sees a player's open burn as a Burn open stamp on the felt slip (see triage8.md #86)",
+   "D10 Burn preview relabelled Reroll: Survey, 2 dice (see triage8.md D10)",
+   "#87 Touch targets under 44px: RollModifications.jsx and AbilityMarkOffer.jsx parts (see triage8.md #87)",
+   "88.5 Keep-a-die dice shimmy on touch (see triage8.md 88.5)",
+   "88.13 Ally cards do not name the mark (see triage8.md 88.13)",
+   "88.u8 Lightkeeper's Secret armed state made loud (see triage8.md 88.u8)",
+   "88.u14 Adrenaline Rush picker full drive names and Pick a drive hint (see triage8.md 88.u14)",
+   "88.u17 Keep slip equal failures wording (see triage8.md 88.u17)",
+   "88.u26 Lightkeeper log wording nits (see triage8.md 88.u26)",
+   "88.u11 store half: action_rejected spend_resource sets spendRefusal (see triage8.md 88.u11)"
+  ]
+ },
+ {
+  "name": "charter",
+  "model": "opus",
+  "owns": "vtt/routers/circles.py, vtt/ws/handlers/gm.py, vtt/ws/handlers/circle.py, vtt/sheet_edits.py; gm/CirclePage.jsx, gm/SceneManager.jsx; tests/test_fix8_circle.py and in-place flips in test_ws_sheet_edits.py and the advance-line test; docs WEBSOCKET.md 4.2 rows and 4.6 spend and report rows, FAQ.md :244-248, :295 and the spending paragraph, QUIRKS.md around :191",
+  "items": [
+   "#74 Charter read-only until the seal; players' chapter house wins (see triage8.md #74)",
+   "#75 Edit sheet log shows the part of a text field that changed (see triage8.md #75)",
+   "#76 Dead report: is_dead re-check in circle.py handler (see triage8.md #76)",
+   "88.3 Add N Illumination confirm only while reports are unfiled; FAQ :248 (see triage8.md 88.3)",
+   "88.10 Advance log line names the refill (see triage8.md 88.10)",
+   "88.12 +1 Illumination stops at 12, server clamps (see triage8.md 88.12)",
+   "88.u11 Spending closes at End Assignment, reopens at next dispatch; refusal and i text (see triage8.md 88.u11)",
+   "88.u12 Amended mark on the Lightkeeper's report card (see triage8.md 88.u12)",
+   "88.u13 Amendment with no change refused (see triage8.md 88.u13)",
+   "88.u20 Illumination heading name on CirclePage.jsx (see triage8.md 88.u20)",
+   "88.i1 Line filed mark on the report card front (see triage8.md 88.i1)"
+  ]
+ },
+ {
+  "name": "papers",
+  "model": "sonnet",
+  "owns": "pc/CircleView.jsx, pc/CircleCreationPopup.jsx, pc/DispatchNote.jsx (reads store only; no server)",
+  "items": [
+   "#76 Dead desk: no report form in CircleView.jsx (see triage8.md #76)",
+   "88.4 Formation parts show a done tick (see triage8.md 88.4)",
+   "88.9 Advancement dialog wording after rollover (see triage8.md 88.9)",
+   "88.11 Advancement receipt wording matches the log (see triage8.md 88.11)",
+   "88.14 Stale tab Confirm advancement points to Use this tab (see triage8.md 88.14)",
+   "88.20 Chapter House draft says another member changed it (see triage8.md 88.20)",
+   "88.u7 Circle spend announced; Train die held note (see triage8.md 88.u7)",
+   "88.u9 Empty dispatch shows No dispatch yet (see triage8.md 88.u9)",
+   "88.u11 Player spending i text and spendRefusal display (see triage8.md 88.u11)",
+   "88.u20 Illumination heading name on CircleView.jsx (see triage8.md 88.u20)",
+   "88.u21 Name suggestion counter labelled (see triage8.md 88.u21)",
+   "88.i3 Stitch with no marks says so (see triage8.md 88.i3)"
+  ]
+ },
+ {
+  "name": "ux",
+  "model": "sonnet",
+  "owns": "pc/InvestigatorDossier.jsx, game/abilityUses.js, pc/ScarModal.jsx, pc/relationships/RelationshipNegotiation.jsx, shared/NotebookView.jsx, gm/OperationsPanel.jsx, gm/desk/JoinRequestPopup.jsx, shared/ConnectionBanner.jsx (only if 88.15 check fails), gm/GMCharacterSheet.jsx, shared/JoinCampaignForm.jsx, CharacterCreator.jsx (no server)",
+  "items": [
+   "#82 Player's sheet does not offer Revive (InvestigatorDossier.jsx) (see triage8.md #82)",
+   "#87 Touch targets under 44px: ScarModal.jsx and RelationshipNegotiation.jsx parts (see triage8.md #87)",
+   "88.2 Used this assignment shown for once-per-assignment abilities on both sheets (see triage8.md 88.2)",
+   "88.6 Notebook Contents lines per page on a phone (see triage8.md 88.6)",
+   "88.15 Superseded Lightkeeper tab: browser check of Use this tab (see triage8.md 88.15)",
+   "88.16 Join request pop-up as a slim toast (see triage8.md 88.16)",
+   "88.17 New request clears a closed request's note (see triage8.md 88.17)",
+   "88.18 About About Reset name (see triage8.md 88.18)",
+   "88.19 Refused edit announced once (see triage8.md 88.19)",
+   "88.21 Join dialog buttons aligned (see triage8.md 88.21)",
+   "88.u3 Relationship placeholder and two-way hint (see triage8.md 88.u3)",
+   "88.u25 Field Notes empty contents line (see triage8.md 88.u25)",
+   "88.u27 aria-pressed on the creator's chosen Raise (see triage8.md 88.u27)"
+  ]
+ }
+]
