@@ -1298,7 +1298,7 @@ def test_revive_character(client):
     ch = support.active_member(client, camp, body_marks=2, brain_marks=1, bleed_marks=3, incapacitated=True)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("revive_character", character_id=ch["id"])
-        gm.sync()
+        desk = gm.sync()
         msgs = ws.drain()
         assert support.types(msgs) == ["character_update", "activity_log", "member_status"]
         p = msgs[0]["payload"]
@@ -1307,6 +1307,7 @@ def test_revive_character(client):
         assert p["is_dead"] is False
         assert msgs[1]["payload"] == {"message": f"The Lightkeeper revived {ch['name']}.",
                                       "log_type": "field", "ink_color": engine.INK_COLORS[0]}
+        assert desk == [{"type": "member_update", "payload": p}, msgs[1]]
 
 
 

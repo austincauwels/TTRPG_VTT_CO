@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { UnaffiliatedCharacterRow } from './UnaffiliatedCharacterRow';
 import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
@@ -19,6 +19,11 @@ export const PlayerRegistryPage = ({
 }) => {
   const letInIds = useGameStore(s => s.letInIds);
   const forgetLetIn = useGameStore(s => s.forgetLetIn);
+  // The server says whether a row is still let in: once the investigator was played on
+  // another device, this browser's own mark of the approval goes too
+  useEffect(() => {
+    characters.forEach(c => { if (c.status === 'active' && c.let_in === false && letInIds.includes(c.id)) forgetLetIn(c.id); });
+  }, [characters, letInIds]);
   const deleteCharacter = useGameStore(s => s.deleteCharacter);
   const restoreCharacter = useGameStore(s => s.restoreCharacter);
   const removal = useDeleteUndo({ remove: deleteCharacter, restore: restoreCharacter });
@@ -111,9 +116,9 @@ export const PlayerRegistryPage = ({
               <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-seal-green">In a campaign</p>
               <div className="space-y-1.5">
                 {characters.filter(c => c.status === 'active').map(char => {
-                  // Let in and not yet played: the server's mark (every browser) or this
-                  // browser's, from an approval it saw
-                  const letIn = !char.is_dead && (char.let_in || letInIds.includes(char.id));
+                  // Let in and not yet played: the server's mark (every browser) wherever the
+                  // row carries it; this browser's, from an approval it saw, only where not
+                  const letIn = !char.is_dead && ('let_in' in char ? char.let_in : letInIds.includes(char.id));
                   return (
                   <div key={char.id} className="relative flex flex-wrap items-center" style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)' }}>
                   {/* Play reads the lists again before the desk opens (issue #42): meanwhile the

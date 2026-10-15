@@ -4,6 +4,7 @@ within the assignment (#77), the Lightkeeper's revive (#82), the held mark on th
 card (88.1) and the Let in mark kept by the server (88.7)."""
 import support
 from models import Character, Circle, User
+from vtt.ws.handlers import marks
 
 
 def _sealed(client, members=3, **fields):
@@ -21,7 +22,7 @@ def _roster_item(client, camp, char_id):
 
 # --- #72 the owed scar is stored ------------------------------------------------
 
-def test_a_scar_owed_survives_a_restart(client):
+def test_a_scar_owed_survives_a_restart(client, monkeypatch):
     """Fixed (#72): the owed scar was a set in the server's memory, so a restart lost it and
     the sheet, the roster card and Resuscitation forgot the scar. It is the column
     characters.scar_pending: set by the fourth mark, read on every connect and on the
@@ -32,7 +33,10 @@ def test_a_scar_owed_survives_a_restart(client):
         ws.send("take_mark", mark_type="body")
         ws.sync()
     assert support.fetch(Character, ch["id"]).scar_pending is True
-    # a restart keeps nothing in memory of it: a new socket reads the stored column
+    # a restart keeps nothing of the marks' memory and drops the sockets: a new socket
+    # reads the stored column
+    for name in ("_pending_rush", "_interceptable", "_intercept_for", "_watched", "_non_combatant"):
+        monkeypatch.setattr(marks, name, type(getattr(marks, name))())
     with support.ws_connect(client, ch["id"]) as again:
         assert again.initial[0]["payload"]["scar_pending"] is True
         assert _roster_item(client, camp, ch["id"])["scar_pending"] is True
