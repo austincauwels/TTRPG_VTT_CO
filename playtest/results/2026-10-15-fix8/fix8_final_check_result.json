@@ -1,0 +1,1056 @@
+{
+ "checks": [
+  {
+   "summary": "Final Opus review of claude/fix-round-8 (HEAD 7aba635) against 1bc48a0. I read the whole merged diff against decisions8.md, triage8.md and the earlier binding decisions. I ran the targeted backend tests on a throwaway database (opusrev8, now dropped): test_fix8_death, test_fix8_circle, test_fix8_restarts, test_00_startup and test_surface gave 127 passed and 1 failed. The failure is test_cors_allows_configured_origin_only, which fails only because my shell did not set CORS_ORIGINS. The frontend builds with vite. I made no edits and the working tree is clean.\n\nEvery item in scope does what decisions8 and the triage ask. Nothing decided earlier was removed or weakened:\n- Round 6's held marks are still stored and resent, and #81 only lands a held mark first at a closed desk.\n- The roll replay (send_held_roll) is unchanged, and activity_history now comes after it.\n- The dead as a record is stronger: reports and revive are refused, and a report filed before the death keeps its card.\n- decisions_fix4's release rules hold. Nothing goes up at a death, when a death is lifted, or at an approval, and End Assignment still resets the count and clears departed_spends.\n- decisions_run4 holds: the felt keeps the roll after End Assignment, only the stamp goes.\n\nOn the server:\n- scar_pending and let_in are columns, covered in both test_00_startup lists.\n- The death lowers the pools in its own commit under the circle lock, then sends circle_update and one log line.\n- departed_spends works across release, rejoin, approve and End Assignment. It is reserved, stripped from frames and refused from players.\n- The revive refusal is 403. DEAD_REFUSED covers reports and circle.py checks again under the lock.\n- The charter is refused before the seal, and the players' chapter house wins at the seal.\n- spending_paused closes at End Assignment and reopens at the first dispatch. The toggle and both circle update messages lock the row, and players cannot write the flag.\n- The +1 clamp keeps any carry-over.\n- amended_at is kept and the store carries it (7aba635). A no-change amendment is refused with \"Nothing changed.\"\n- activity_history is sent on every connect.\n- Non-Combatant points are resent on connect, and a full drive is refused.\n- A roll is refused while a gilded die waits.\n- The felt roll carries settled.\n- WEBSOCKET.md, FAQ.md, QUIRKS.md, DESIGN.md and openapi.json (held_marks, let_in) are updated.\n\nThe seams between groups mostly line up:\n- #76 is consistent between access.py and circle.py.\n- spendRefusal in the store is shown by CircleView.\n- Revive is refused by the server and gone from the player's sheet.\n- endpoint.py's let_in block sits before the connect frames and activity_history is last.\n- The two edits to tests/support.py merged cleanly.\n\nThe real seam problems are on the player's Circle page. The resources \"i\" now says that End Assignment closes spending twice, and an old spend refusal comes back each time the Circle tab is opened.\n\nAll 56 choices fit decisions8. Robert should be asked about these:\n- (1) An investigator outside any campaign can now never be revived.\n- (2) 88.u11: spending reopens on any write of location, atmosphere or dispatch text after End Assignment, and spending she had locked herself stays locked.\n- (3) #77: the spend count follows the player, so it also carries to a different investigator of the same player.\n- (4) The em dash kept in \"The Lightkeeper rolled \u2014\".\n- (5) #86's known live gap: a player's secret roll does not clear the stamp until she reloads.\n- (6) The join toast drops Reject; it sits behind View on the Requests page.\n- (7) 88.12 clamps a raise past 12 rather than refusing it (a triage call).\n\nThere are no AI model names in files (commit trailers aside), no \"GM\" on screen, and new controls are 44px on touch. The only em dash in added lines is the kept roll-line one.",
+   "items": [
+    {
+     "item": "#72 owed scar stored (characters.scar_pending)",
+     "control": "n/a",
+     "fixed": "Column added (models.py, db.py add_columns); set before the commit at marks.py:300, cleared by any recorded scar incl. death (character.py:111); serializers, roster to_item and rolls.py Resuscitation read the column; awaiting_scar removed. test_a_scar_owed_survives_a_restart passes.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#73 death lowers maximum and pools at once",
+     "control": "n/a",
+     "fixed": "_circle_at_death locks the campaign circle before the commit, lowers to pool (fills before the seal), commit holds both; circle_update to the campaign plus 'Stitch, Refresh and Train now hold at most N each.'; nothing goes up on lift (test). Lock order is circle then character (see issue).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#74 charter read-only until the seal; players' house wins",
+     "control": "n/a",
+     "fixed": "handle_update_circle refuses name/chapter_house_location/circle_ability/insignia before is_finalized (409, whole payload); finalize always takes the players' non-empty answer; CirclePage shows text, 'Chosen by vote', 'Not sealed yet' i.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#75 Edit sheet log shows the changed words",
+     "control": "n/a",
+     "fixed": "_changed_part trims common words with one word of context, both sides clipped; tests pass.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#76 dead cannot file or amend a report",
+     "control": "n/a",
+     "fixed": "DEAD_REFUSED gains submit_assignment_report; circle.py re-checks reporter.is_dead under the circle lock (and #73's death now takes that lock, so the race is closed); CircleView hides form and Amend on a dead desk; filed report keeps its card.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#77 spend count kept across leave and rejoin",
+     "control": "n/a",
+     "fixed": "keep_departed_spends in release_member (same commit), take_departed_spends in approve_investigator and rejoin (both lock the circle), cleared by clear_paperwork, stripped by without_reports, reserved in RESERVED_ANSWERS. Keyed by player (choice).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#78 refused keep / lost roll after restart",
+     "control": "n/a",
+     "fixed": "activity_history always sent last (endpoint.py); store rollAskedBack/feltAskedBack; refused resolve_gilded clears kept die (rollLost); empty history keeps the log; one line per case.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#79 Non-Combatant points: reload, restart, full drive",
+     "control": "n/a",
+     "fixed": "Points stored with doctor/mark/deadline and resent in send_open_intercepts; full drive refused 409 '<Drive> is already full.' with the card resent; store drops NC cards on open and shows interceptRefused; picker shows full drives disabled.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#80 no roll over a waiting gilded choice",
+     "control": "n/a",
+     "fixed": "handle_roll refuses 409 'Keep a die from your last roll first.' after the roll_id replay; check and set are both synchronous, so no double-press window.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#81 held Death Defy lands first at a closed desk",
+     "control": "n/a",
+     "fixed": "handle_take_mark closed-desk branch: _take_held(commit=True), mark_offer_closed, _land, then the dealt line and the new mark; held_mark None so no offer returns. Test passes.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#82 only the Lightkeeper revives",
+     "control": "n/a",
+     "fixed": "access._revive 403 'Only the Lightkeeper revives an investigator.' after the dead check; log 'The Lightkeeper revived <name>.'; Revive shown only on readOnly with traumaEdit.revive. Applies to unaffiliated characters too (ask Robert).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#83 second Lightkeeper tab drops the approved request",
+     "control": "n/a",
+     "fixed": "investigator_approved filters pending_investigators.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#84 Play button name",
+     "control": "n/a",
+     "fixed": "aria-label 'Play <name>, <campaign>' with the stamp as aria-describedby.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#85 WEBSOCKET.md reconnect docs",
+     "control": "n/a",
+     "fixed": "Section 7 and R7 rewritten (close codes, backoff, heartbeat, what survives a restart).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#86 Burn open stamp on the felt",
+     "control": "n/a",
+     "fixed": "tableRollSettled in store; DiceTray stamp with an InfoTerm i (44px coarse); replay carries settled; End Assignment and restart take the stamp, not the roll. Live secret-roll gap documented in QUIRKS.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "#87 44px touch targets",
+     "control": "n/a",
+     "fixed": "RollModifications Use/Skip/drive/selects, AbilityMarkOffer drives, ScarModal action rows and Hardened row, RelationshipNegotiation prompts (Accept already 44px).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "D10 burn preview label",
+     "control": "n/a",
+     "fixed": "'Reroll: Survey, 2 dice' with matching ariaLabel; FAQ and DESIGN updated.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.1 roster card held mark",
+     "control": "n/a",
+     "fixed": "to_item held_marks for the Lightkeeper; schema and openapi; glanceOf 'Bleed mark held: Death Defy?'.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.2 once-per-assignment used line",
+     "control": "n/a",
+     "fixed": "ONCE_SHOWN plus 'Used this assignment.' on both copies.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.3 Add N confirm while reports unfiled",
+     "control": "n/a",
+     "fixed": "ConfirmAction while unfiled.length > 0, armed 'Add'; one press when all filed; FAQ updated.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.4 formation parts done marks",
+     "control": "n/a",
+     "fixed": "TickMark on Section and phone strip with sr-only text.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.5 shimmy on touch",
+     "control": "n/a",
+     "fixed": "[@media(hover:none)] and motion-reduce animate-none.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.6 notebook contents density",
+     "control": "n/a",
+     "fixed": "TOC_ROW_NARROW 66 to 60 (a constant rather than the triage's measured first row); not re-checked in a browser here.",
+     "verdict": "partly"
+    },
+    {
+     "item": "88.7 Let in mark on the server",
+     "control": "n/a",
+     "fixed": "let_in set by approve and rejoin, cleared on release, at the desk's connect and on approval with the desk open; served in sheets and CharacterSummaryItem; the registry prefers the server value.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.8 to 88.11, 88.13, 88.14, 88.16 to 88.21 small lines",
+     "control": "n/a",
+     "fixed": "Each present as the triage describes (banner wording, advancement wording, refill log line, receipt capitalisation, mark named on ally cards, stale-tab Confirm with Use this tab, slim toast, closed-request note, 'Reset' label, single alert, chapter house note, Join buttons).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.12 +1 Illumination stops at 12",
+     "control": "n/a",
+     "fixed": "Button disabled at 12; server clamps a raise to max(old, 12), carry-over kept.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.15 superseded Lightkeeper tab",
+     "control": "n/a",
+     "fixed": "No change; the ux group's browser check passed.",
+     "verdict": "not checked"
+    },
+    {
+     "item": "88.u11 spending closes at End, reopens at dispatch",
+     "control": "n/a",
+     "fixed": "End sets resources_editable false plus the spending_paused flag; reopen_spending in gm_update_circle and update_circle under the row lock; toggle clears the flag; refusals in circle.py; the flag cannot be written through circle_backstory_update; SceneManager, CircleView, CirclePage, FAQ and QUIRKS wording. The player's i repeats the sentence (issue).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.u12 / 88.u13 amended mark and no-change refusal",
+     "control": "n/a",
+     "fixed": "amended_at stored and sent; submitted_at kept; 'Nothing changed.' 409; store keeps amended_at (7aba635); card shows 'Amended <time>' and 'Line filed'.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "88.u3, u7, u8, u9, u14, u17, u20, u21, u25, u26, u27; 88.i1, i3",
+     "control": "n/a",
+     "fixed": "All present; u27 was already in the code.",
+     "verdict": "fixed"
+    },
+    {
+     "item": "Protocol docs, test_surface, openapi",
+     "control": "n/a",
+     "fixed": "Every new refusal and field is in WEBSOCKET.md except departed_spends as a reserved key; the revive_character case is flipped to the Lightkeeper in test_surface; openapi has held_marks and let_in.",
+     "verdict": "partly"
+    },
+    {
+     "item": "Seams between groups",
+     "control": "n/a",
+     "fixed": "#76 consistent; spendRefusal and CircleView work (stale on remount, issue); revive refusal and Revive removal consistent; let_in block and activity_history ordered right; support.py merged; refillRule and CircleView duplicate the spending sentence (issue).",
+     "verdict": "partly"
+    },
+    {
+     "item": "56 choices against decisions8",
+     "control": "n/a",
+     "fixed": "All fit; 7 to raise with Robert (see summary).",
+     "verdict": "fixed"
+    },
+    {
+     "item": "Rules: 44px, help on demand, confirms, no em dashes, no model names, Lightkeeper on screen",
+     "control": "n/a",
+     "fixed": "Hold, except one kept em dash in a changed roll log line and the two-sentence Stitch ask (wording from the triage).",
+     "verdict": "partly"
+    }
+   ],
+   "issues": [
+    {
+     "level": "should",
+     "item": "88.u11 / seam charter-papers",
+     "where": "frontend/src/components/pc/CircleView.jsx:954",
+     "problem": "The player's Circle Resources i reads refillRule, which now already ends 'End Assignment closes it until the next assignment's dispatch and starts the count again.' (charter repair, circleResources.js), and CircleView appends 'Spending closes when an assignment ends and opens again with the next assignment's dispatch.' The same rule is said twice in one slip.",
+     "fix": "Drop the appended sentence in CircleView.jsx:954 and pass refillRule(...) alone, as CirclePage.jsx:742 does."
+    },
+    {
+     "level": "should",
+     "item": "88.u11 spend refusal display / seam restarts-papers",
+     "where": "frontend/src/components/pc/CircleView.jsx:656-664",
+     "problem": "spendRefusal stays in the store, and CircleView mounts only while the Circle tab is open (MainDeskView.jsx:298). The effect on [spendRefusal] runs again on each mount, so an old refusal ('Spending is closed until the next assignment starts.') comes back as role=alert for 8 seconds every time the player returns to the tab, even after spending has reopened.",
+     "fix": "Show it only when Date.now() - spendRefusal.at < 8000 (spendRefusal.at is already stored), or clear spendRefusal in the store once it has been shown or when a circle_update reports resources_editable true."
+    },
+    {
+     "level": "should",
+     "item": "#82 choice: an investigator outside a campaign cannot be revived",
+     "where": "backend/vtt/ws/access.py:579-584",
+     "problem": "The refusal applies to every player socket, unaffiliated ones included. An unaffiliated investigator incapacitated by a fourth mark has no Lightkeeper, and Edit sheet cannot clear incapacitated, so it stays down until it joins a campaign. Decision 4 as written allows this; the death group named it in its merge notes.",
+     "fix": "Ask Robert: keep it, or let a player socket revive an investigator that is in no campaign (ctx.camp_id is None)."
+    },
+    {
+     "level": "nit",
+     "item": "#73 lock order",
+     "where": "backend/vtt/ws/handlers/character.py:186-195",
+     "problem": "The session has autoflush=False (vtt/db.py:39), so _circle_at_death locks the circle FOR UPDATE before the character's death UPDATE is flushed. release_member locks the character FOR UPDATE first and then the circle (campaigns.py:378-382). A release of the same member at the same moment their fourth scar is recorded can deadlock; PostgreSQL aborts one side, which ends that socket or returns a 500.",
+     "fix": "Call ctx.db.flush() before the circle query in _circle_at_death, so the character row is locked first, as in release_member. The flush after the lock can stay for resource_pool."
+    },
+    {
+     "level": "nit",
+     "item": "88.u11 player's spending label",
+     "where": "frontend/src/components/pc/CircleView.jsx:963-966",
+     "problem": "While End Assignment has closed spending, the player's head label still reads 'Spending locked'. The line under it and the Lightkeeper's page ('Closed until the dispatch') say closed.",
+     "fix": "Use the same spending_paused branch as CirclePage.jsx:684 ('Closed until the dispatch')."
+    },
+    {
+     "level": "nit",
+     "item": "No em dashes in added lines",
+     "where": "backend/vtt/ws/handlers/rolls.py:624",
+     "problem": "The changed line 'The Lightkeeper rolled \u2014 ...' keeps the em dash. It is the existing format of every roll line and tests pin it.",
+     "fix": "Flag it to Robert. Changing it means changing both roll log formats and the tests that pin them, in one place."
+    },
+    {
+     "level": "nit",
+     "item": "Short confirms",
+     "where": "frontend/src/components/pc/CircleView.jsx:633-635",
+     "problem": "The Stitch ask with no marks, 'No marks to clear. Press again to spend it anyway.', is two sentences. The rule is one short sentence; the triage gave this wording.",
+     "fix": "'Press again to spend it with no marks to clear.', or keep it and note the exception."
+    },
+    {
+     "level": "nit",
+     "item": "Protocol docs",
+     "where": "docs/refactor/WEBSOCKET.md:234 and :363 (R12)",
+     "problem": "The circle_backstory_update row lists the reserved keys refused with 403 but not departed_spends, which access.py now refuses. R12's list of backstory_answers contents names neither departed_spends nor spending_paused.",
+     "fix": "Add departed_spends to the reserved-key sentence, and add both keys to R12."
+    },
+    {
+     "level": "nit",
+     "item": "88.7 at deploy",
+     "where": "frontend/src/components/campaignSelector/PlayerRegistryPage.jsx:22-26,121",
+     "problem": "Investigators approved before the deploy and not yet played have let_in false in the database. The registry now prefers the server value and also forgets the browser's letInIds, so their Let in stamp disappears once.",
+     "fix": "Accept it and note it in the PR. No code change needed."
+    },
+    {
+     "level": "nit",
+     "item": "Test coverage",
+     "where": "backend/tests/test_fix8_circle.py",
+     "problem": "Reopening spending is tested only through gm_update_circle, not through the Lightkeeper's update_circle path that also calls reopen_spending. No test covers a death racing a release.",
+     "fix": "Add an update_circle dispatch case to test_end_assignment_closes_spending_until_the_next_dispatch."
+    },
+    {
+     "level": "nit",
+     "item": "#73 before the seal",
+     "where": "backend/vtt/ws/handlers/character.py:193-195",
+     "problem": "Before the seal a death fills the pools to the new pool and writes the 'now hold at most N' line. This follows release_member's docstring, but release_member's code does not fill before the seal. Harmless, because the seal fills them anyway.",
+     "fix": "None needed. Optionally skip the log line before the seal."
+    }
+   ]
+  },
+  {
+   "summary": "All eleven server-path items are fixed on HEAD in the browser and at the protocol level; I found no blocking issue. Each item was driven on the control (1bc48a0, ports 8012/4012) and on HEAD (8011/4011). I looked at the key screenshots. The laptop was driven for every item, with phone and tablet added for #72, #73, #76, #82, 88.7 and #84. For #77, #78, #79, #80 and #81 only some sizes were driven (below). Two small gaps (#79 wording, #80 UI) are listed as issues. Servers were stopped by PID and both databases dropped. Screenshots are in /tmp/bc8_server/shots (127 files), scripts in /tmp/bc8_server.",
+   "items": [
+    {
+     "item": "#72 scar owed survives a restart (roster card and sheet)",
+     "control": "A fourth body mark left the scar owed (trigger_scar, roster scar_pending true, sheet true). After a backend restart both read false. The roster card said 'Incapacitated \u00b7 3 scars' and the sheet had no 'Scar owed' line.",
+     "fixed": "After the same restart both read true. The roster card says 'Incapacitated: scar owed \u00b7 3 scars' and the sheet says 'INCAPACITATED: SCAR OWED' at phone, tablet and laptop.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/72_ctl_gm_laptop.png",
+      "/tmp/bc8_server/shots/72_head_gm_laptop.png",
+      "/tmp/bc8_server/shots/72_head_sheet_phone.png",
+      "/tmp/bc8_server/shots/72_ctl_sheet_phone.png"
+     ]
+    },
+    {
+     "item": "#73 death lowers circle pools and max live on every desk, one log line, reload agrees",
+     "control": "A fourth scar sent no circle_update and no log line. The Lightkeeper's desk stayed at 'max 5' and Iris's desk at 'Stitch: 5 of 5'. A reload then read 'max 4' and '5 of 4'.",
+     "fixed": "Every socket got circle_update 4/4/4 and the line 'Stitch, Refresh and Train now hold at most 4 each.' The Lightkeeper's desk read '4 \u00b7 max 4' and Iris's circle read '4 of 4' live and after a reload. Checked on laptop, phone and tablet, with the Lightkeeper's phone desk checked for the log line only. The server log has no tracebacks.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/73_ctl_lk_live.png",
+      "/tmp/bc8_server/shots/73_head_lk_live.png",
+      "/tmp/bc8_server/shots/73_head_iris_circle_live.png",
+      "/tmp/bc8_server/shots/73_head_phone_iris_circle_live.png"
+     ]
+    },
+    {
+     "item": "#76 dead investigator cannot file or amend a report, no form on the dead desk",
+     "control": "A dead Dee filed and amended a report ('Dee Wren filed/amended an assignment report'). The dead desk showed Send report at all three sizes.",
+     "fixed": "File and amend are both refused with 409 'Dee Wren is dead: the sheet is a record.' The dead desk has no Send report button and says 'A dead investigator files no report.' at phone, tablet and laptop. Living Iris still files.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/76_ctl_dead_phone.png",
+      "/tmp/bc8_server/shots/76_head_dead_phone.png",
+      "/tmp/bc8_server/shots/76_head_dead_laptop.png"
+     ]
+    },
+    {
+     "item": "#77 leave and rejoin in one assignment keeps the spend count",
+     "control": "With 1 spend, leave, ask again and approve, the count was 0. The Lightkeeper's card read 'Circle spends this assignment 0 / 2'.",
+     "fixed": "The count stayed 1 and the Lightkeeper's card read 1 / 2 (laptop). Leave, then End Assignment, then rejoin gave 0. Only the Lightkeeper's card was checked in the browser, on laptop. The player's own desk was not read; the check I ran never found the spend text there.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/77_ctl_lk_laptop.png",
+      "/tmp/bc8_server/shots/77_head_lk_laptop.png"
+     ]
+    },
+    {
+     "item": "#78 after a restart a refused gilded keep shows no outcome and no Burn",
+     "control": "After a restart the desk kept 'Keep one die'. Pressing Enter on the gilded die showed the outcome 'FAILURE' and 'BURN AND REROLL'. A plain roll still offered Burn after a live reconnect.",
+     "fixed": "On a natural reconnect the desk says 'That roll was lost when the server restarted. Roll again.' and 'Roll settled', with no keep buttons. With the history frame held back so the keep is actually refused, the slip shows dice only, 'No roll is waiting for a die to be kept. Roll again.' and 'Roll settled', with no outcome and no Burn. A plain roll across a restart says 'The server restarted, so this roll can no longer be burned or changed.' and has no Burn. Laptop for all three. Phone was checked for the refused-keep path only. Tablet not driven.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/78_ctl_laptop_keep_3_after_keep.png",
+      "/tmp/bc8_server/shots/78_head_laptop_keep_3_after_keep.png",
+      "/tmp/bc8_server/shots/78_head_laptop_burn_2_reconnected.png",
+      "/tmp/bc8_server/shots/78_head_phone_keep_3_after_keep.png"
+     ]
+    },
+    {
+     "item": "#79 Non-Combatant offers: reload, restart, full drive",
+     "control": "The card was not sent again after a reload. After a restart the dead card stayed on the desk. A pick on a full drive logged 'recovered 1 Nerve (Non-Combatant)'.",
+     "fixed": "A reload brings the card back with the time left (1:09 left; full drives shown 'full' and disabled). A full drive is refused 'Nerve is already full.', the point is kept, the card comes back and nothing is logged. After a restart the card is dropped. See the issue below: nothing says why it went. Laptop for reload, restart and full drive. Phone for reload only. Tablet not driven.",
+     "verdict": "partly",
+     "shots": [
+      "/tmp/bc8_server/shots/79_head_laptop_reload_2_reload.png",
+      "/tmp/bc8_server/shots/79_head_laptop_restart_2_restart.png",
+      "/tmp/bc8_server/shots/79_ctl_laptop_restart_2_restart.png"
+     ]
+    },
+    {
+     "item": "#80 no new roll while a gilded choice waits",
+     "control": "With a gilded choice waiting, a second roll was accepted (roll_result) and replaced it.",
+     "fixed": "The server refuses with 409 'Keep a die from your last roll first.' The desk's Roll buttons are also disabled while the choice waits, so a second tab cannot reach the refusal from the UI. Server path verified; the desk-side refusal text was not seen. Laptop only.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/80_head_laptop_tab2_open.png"
+     ]
+    },
+    {
+     "item": "#81 mark dealt beside a stored Death Defy hold",
+     "control": "The Lightkeeper's mark landed, the held body mark stayed stored, and the desk opened with the Death Defy offer again ('Body marks: 0 of 3, 1 held').",
+     "fixed": "The held body mark landed first, held_mark is null, the brain mark landed, and the desk gets no Death Defy offer ('Body marks: 1 of 3, Brain marks: 1 of 3'). The log reads 'Iris Vane took a Body mark (1 of 3)' before the dealt line. Phone, tablet and laptop all agree.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/81_ctl_phone.png",
+      "/tmp/bc8_server/shots/81_head_phone.png",
+      "/tmp/bc8_server/shots/81_head_laptop.png"
+     ]
+    },
+    {
+     "item": "#82 player cannot Revive, Lightkeeper can, log names it",
+     "control": "A player's own Revive worked ('Dee Wren has been revived and is operational.'). The player's sheet showed a Revive button at all three sizes.",
+     "fixed": "A player's revive_character gets 403 'Only the Lightkeeper revives an investigator.' The player's sheet shows no Revive button at phone, tablet and laptop. The Lightkeeper's trauma record still has Revive (phone and laptop), and her revive logs 'The Lightkeeper revived Dee Wren.'",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/82_ctl_player_phone.png",
+      "/tmp/bc8_server/shots/82_head_player_phone.png",
+      "/tmp/bc8_server/shots/82_head_lk_laptop.png"
+     ]
+    },
+    {
+     "item": "88.7 Let in: press Play shows in a second browser and goes after Play",
+     "control": "A browser that did not see the approval live showed no stamp. This was not driven from the browser that did see it, so the original browser-only quirk is inferred from the code.",
+     "fixed": "A second, fresh browser signed in as the same account shows 'LET IN: PRESS PLAY' on the card (phone, tablet and laptop). After Play in the first browser, the second one no longer shows it on reload.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/887_head_phone_B_registry.png",
+      "/tmp/bc8_server/shots/887_head_laptop_B_registry.png",
+      "/tmp/bc8_server/shots/887_head_laptop_B_after.png"
+     ]
+    },
+    {
+     "item": "#84 let-in Play button name starts with Play",
+     "control": "With no stamp, the control button has no aria-label. Its name is its text, 'Eve Hart The Saltmere Chapter PLAY \u2192'. With the stamp the text includes 'Let in: press Play', and the name does not start with Play.",
+     "fixed": "The button's aria-label is 'Play Eve Hart, The Saltmere Chapter' with the stamp showing, and the stamp is its description. Phone, tablet and laptop.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_server/shots/887_head_phone_A_registry.png"
+     ]
+    }
+   ],
+   "issues": [
+    {
+     "level": "should",
+     "item": "#79 after a restart the Non-Combatant card goes with no word",
+     "where": "frontend/src/store/gameStore.js:128 and :869 (sentAgainOnOpen), :1219-1223 (pointAnswerOut)",
+     "problem": "Issue #79 asked that the card's refusal be shown the way 'PREMONITIONS NOT USED' is shown. On HEAD the card is dropped silently when the socket reopens after a restart (screenshot 79_head_laptop_restart_2_restart.png: no card, no note). 'Non-Combatant not used' appears only when a pick is refused, and a restart cannot produce that, because the card is dropped before it can be answered. The implementer's note says 'refusal shown'; I did not see it. The silent drop matches how Premonitions behaves and decisions_fix6 1, so this is a gap in the item's wording rather than a break of a decision. I did not get a refusal to show in a browser: my attempt used a second socket, which took the tab over.",
+     "fix": "Optional. When a socket opens and drops a Non-Combatant card, set interceptRefused to {ability: 'Non-Combatant', detail: 'The server restarted, so that drive point is gone.'} so the card's place says so. Or say plainly in FAQ.md that the card just goes after a restart."
+    },
+    {
+     "level": "nit",
+     "item": "#80 refusal text unreachable from the desk",
+     "where": "frontend DiceVault Roll buttons",
+     "problem": "The desk disables its Roll buttons while a gilded choice waits, so 'Keep a die from your last roll first.' is never shown on a second tab. Only the server guard protects a second tab. This is fine for the fix, but the refusal wording is only seen by a protocol client. I did not drive a desk that shows the refusal.",
+     "fix": "None needed."
+    }
+   ]
+  },
+  {
+   "issues": [
+    {
+     "level": "should",
+     "item": "#86 Burn open stamp",
+     "where": "frontend/src/components/pc/DiceVault.jsx (burnOpen / rollerCanBurn)",
+     "problem": "After the Lightkeeper's desk is reloaded, the stamp is worked out from roster cards, which carry no drive max or resistance spent, so rollerCanBurn falls back to true. A roll that cannot be burned (the roller already burned that drive's resistance, e.g. nerve_resistance_spent=1 of 1) still reads Burn open until End Assignment or a restart. I saw it on HEAD. Live, with the sheet known, the stamp correctly stayed off.",
+     "fix": "Add the drive max and the resistance spent to the roster cards for the Lightkeeper (REST and member_update), or have the server send settled:true on a replayed roll whose roller has no resistance left."
+    },
+    {
+     "level": "nit",
+     "item": "#75 Edit sheet log ellipsis",
+     "where": "backend/vtt/sheet_edits.py _changed_part; log lines",
+     "problem": "Lines end in four dots when the clipped part is followed by the sentence full stop, for example 'style ...a brass key... to ...a silver key....' and 'Tidy coat... to Torn coat....'. The change itself is now visible.",
+     "fix": "Drop the sentence full stop after a trailing ellipsis, or trim the trailing ellipsis when nothing was cut after the changed words."
+    },
+    {
+     "level": "nit",
+     "item": "88.1 roster card line, several held marks",
+     "where": "frontend/src/components/gm/desk/InvestigatorBusinessCard.jsx glanceOf",
+     "problem": "With two Bleed marks held the line reads 'Bleed, Bleed marks held: Death Defy?'.",
+     "fix": "Group equal types, for example '2 Bleed marks held: Death Defy?'."
+    },
+    {
+     "level": "nit",
+     "item": "#86 stamp i button on phone",
+     "where": "DiceVault slip, Burn open i",
+     "problem": "The i beside the stamp measured about 28px wide on the phone, well under 44px. It is help on demand and the same InfoTerm size as the other i marks, so I treat it as consistent with the rest of the app.",
+     "fix": "None needed unless i marks are brought up to 44px app-wide."
+    }
+   ],
+   "items": [
+    {
+     "item": "#74 charter read-only before the seal, players' house wins",
+     "control": "The Lightkeeper's chapter house box and name were editable before the seal and did not show the players' answer. She typed her own house text, a player then wrote 'The drowned chapel on Salt Row', and the seal kept the Lightkeeper's text (DB: 'LK override'). The server accepted update_circle with chapter_house_location.",
+     "fixed": "Before the seal the charter shows 'Not sealed yet' with an i reading 'Decided in the formation papers until the seal.' The name is 'Not named yet', the ability 'Chosen by vote', and the house is the players' answer, updating live. The server refuses update_circle with a charter field (409 'Decided in the formation papers until the seal.') and still accepts illumination. The seal stored the players' house and the charter became editable again after it. Checked on laptop, phone and tablet, including after a reload.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_74_i_laptop.png",
+      "/tmp/bc8_desk/shots/head_74_phone_circle.png",
+      "/tmp/bc8_desk/shots/ctl_74_laptop_circle.png",
+      "/tmp/bc8_desk/shots/head_74_sealed_reload.png"
+     ]
+    },
+    {
+     "item": "#75 Edit sheet log shows a change late in a long field",
+     "control": "The log read 'style Tidy coat with many pockets to hide thin... to Tidy coat with many pockets to hide thin....' (both halves cut at 40 characters, so the change was invisible).",
+     "fixed": "The log reads 'style ...a brass key... to ...a silver key....' for a change late in the field and 'Tidy coat... to Torn coat....' for one at the start. Only the trailing four dots are a nit.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_75_phone.png",
+      "/tmp/bc8_desk/shots/head_75_laptop.png"
+     ]
+    },
+    {
+     "item": "#83 second Lightkeeper tab keeps handled request pop-up and count",
+     "control": "With two Lightkeeper tabs, approving in tab A left tab B showing the old pop-up ('Already has an investigator here.') and the Requests count (1 waiting). Same on laptop, tablet and phone.",
+     "fixed": "Tab B dropped the pop-up and the count on laptop, tablet and phone.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_83_laptop_B_after.png",
+      "/tmp/bc8_desk/shots/head_83_phone_B_after.png",
+      "/tmp/bc8_desk/shots/ctl_83_phone_B_before.png"
+     ]
+    },
+    {
+     "item": "#86 open burn as a mark on the player's slip on the Lightkeeper's felt",
+     "control": "No cue on the felt: the Lightkeeper saw the slip and the log line but nothing about an open burn.",
+     "fixed": "A Burn open stamp with an i ('They can still burn a resistance and reroll. An open roll from you ends it.') sits on the roller's slip, live, on laptop, tablet and phone (dice sheet). It goes when she burns. It also goes when End Assignment is pressed, and the roll stays on the felt, including after a reload. It goes after a server restart (HEAD backend restarted on the same port and database), and the player sees 'The server restarted, so this roll can no longer be burned or changed.' No stamp appeared for a roller with no resistance left while the sheet was known. Gap: after a Lightkeeper reload the stamp can show for a roll that can no longer be burned (see issues).",
+     "verdict": "partly",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_86_lk_laptop_open.png",
+      "/tmp/bc8_desk/shots/head_86d_phone_i.png",
+      "/tmp/bc8_desk/shots/head_86_lk_laptop_burned.png",
+      "/tmp/bc8_desk/shots/head_86f_after_restart.png",
+      "/tmp/bc8_desk/shots/head_86_reload_lk.png"
+     ]
+    },
+    {
+     "item": "D10 burn preview reads 'Reroll: Survey, 2 dice'",
+     "control": "The panel read 'Read: 2 dice, lowest counts' (the action and pool only).",
+     "fixed": "The panel reads 'Reroll: Read, 2 dice, lowest counts' (and 'Reroll: Control, 2 dice'), on laptop, tablet and phone. It has an i.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_dbg4_b.png",
+      "/tmp/bc8_desk/shots/head_87a_phone_panel.png"
+     ]
+    },
+    {
+     "item": "#87 in-play controls 44px on touch",
+     "control": "Phone and tablet: roll modifications Use, Skip and the drive picker were 22px tall; the ability mark offer drive picker (Non-Combatant) was 30px; the scar dialog radio rows were 28px. The relationship Accept was already 45px on the control.",
+     "fixed": "Phone and tablet: Use, Skip and the drive picker are 44px tall and at least 44px wide; the offer picker is 44px and now shows the drive names and 'full'; the scar rows are 44px; Accept is 45px (unchanged). On a mouse (laptop) the roll buttons are still 22px and 36px, so there is no visual change there. I did not check the ally select pickers.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_87a_phone_panel.png",
+      "/tmp/bc8_desk/shots/head_87a_phone_picker.png",
+      "/tmp/bc8_desk/shots/head_87c_phone_offer.png",
+      "/tmp/bc8_desk/shots/head_87d_phone_scar.png",
+      "/tmp/bc8_desk/shots/head_87e_phone_accept.png"
+     ]
+    },
+    {
+     "item": "88.1 roster card line for a held mark",
+     "control": "After a Death Defy hold, the roster card showed nothing when the Lightkeeper's desk was reloaded.",
+     "fixed": "The card shows 'Bleed mark held: Death Defy?' on reload. It updates live when the player answers (to 'Marks: 2 Bleed'). Nit: 'Bleed, Bleed marks held' for two marks.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_881_laptop.png"
+     ]
+    },
+    {
+     "item": "88.3 Add Illumination confirm only while reports are unfiled",
+     "control": "Add 2 Illumination applied on one press (illumination 0 to 2).",
+     "fixed": "With reports unfiled, the first press shows 'Press again to add 2 Illumination without their keys.' with Add and Cancel, and nothing is stored until Add (laptop and phone, 44px and 45px). With every report filed, one press adds it and no hint appears.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_883_laptop_armed.png",
+      "/tmp/bc8_desk/shots/head_883_phone_armed.png"
+     ]
+    },
+    {
+     "item": "88.10 advance log line names the refill",
+     "control": "'The Lantern Watch has advanced and gained Stamina Training!'",
+     "fixed": "'The Lantern Watch has advanced and gained Stamina Training! Its Stitch, Refresh and Train are back to 8 each.'",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_8810_laptop_after.png"
+     ]
+    },
+    {
+     "item": "88.12 +1 Illumination stops at 12",
+     "control": "+1 at 12 stored 13 behind '12 / 12'. The server accepted 13 and 15 from a carried-over 14.",
+     "fixed": "The button is disabled at 12 and the DB stays 12. The server clamps a raw 13 to 12. From a carried-over 14 a raise to 15 stays at 14, and lowering to 13 works.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_8812_laptop_at12.png"
+     ]
+    },
+    {
+     "item": "88.13 ally cards name the mark",
+     "control": "'Take Joss Marrow's mark instead' and 'Soak Joss Marrow's mark', and 'Iris Vane took a mark' for Non-Combatant.",
+     "fixed": "'Take Joss Marrow's Body mark instead (spend 1 Nerve).' and 'Soak Joss Marrow's Brain mark (burn 1 Intuition resistance).' and 'Iris Vane took a Bleed mark.'",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_87b_BehindMe_phone.png",
+      "/tmp/bc8_desk/shots/head_87c_phone_offer.png"
+     ]
+    },
+    {
+     "item": "88.16 join request toast",
+     "control": "A large card with the whole player card, Approve, View sheet, Reject, All requests and Later, covering most of a phone.",
+     "fixed": "A slim toast with name, role, Approve, View and Later. It sits above the bottom edge on a phone and at the bottom right on a laptop. Buttons are 44px on phone and tablet.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_83_phone_B_before.png",
+      "/tmp/bc8_desk/shots/head_83_laptop_B_before.png",
+      "/tmp/bc8_desk/shots/ctl_83_phone_B_before.png"
+     ]
+    },
+    {
+     "item": "88.17 new request clears the old note",
+     "control": "The note 'Odo Pell's request is no longer waiting.' stayed when a new request arrived.",
+     "fixed": "The note is cleared and the gone sheet closes when a new request arrives, on laptop and phone, and the new request shows.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_8817_laptop_gone.png",
+      "/tmp/bc8_desk/shots/head_8817_laptop_r2.png"
+     ]
+    },
+    {
+     "item": "88.18 Reset info button name",
+     "control": "aria-label 'About About Reset'.",
+     "fixed": "aria-label 'About Reset', visible text 'Reset'.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_8818_sheet.png"
+     ]
+    },
+    {
+     "item": "88.u8 Secret armed state is loud",
+     "control": "Ticked Secret kept the same red Roll button, only the text changed.",
+     "fixed": "A dashed button with a mask icon, dark with light red text, reading 'Roll 1 die in secret' (laptop and phone). It stays armed after a roll, which was not requested.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_8u8_phone_secret_rolled.png",
+      "/tmp/bc8_desk/shots/ctl_8u8_phone_secret_rolled.png"
+     ]
+    },
+    {
+     "item": "88.u12 and 88.i1 report card shows Amended and Line filed, live",
+     "control": "The card showed only 'Report filed'.",
+     "fixed": "'Line filed' appears live on the card front after filing with a line, and 'Amended 07:27 PM' appears live after an amendment, with the Lightkeeper's Circle page open.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_88r_phone_lk_filed.png",
+      "/tmp/bc8_desk/shots/head_88r_phone_lk_amended.png"
+     ]
+    },
+    {
+     "item": "88.u13 an amendment with no change is refused",
+     "control": "An unchanged amendment was accepted with 'Report sent to the Lightkeeper.'",
+     "fixed": "The player sees 'Nothing changed.' and the Lightkeeper's card is unchanged. A real change amends.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_88r_phone_pl_nochange.png"
+     ]
+    },
+    {
+     "item": "88.u17 and 88.u26 keep slip and log wording",
+     "control": "Both failures read 'Keep the gilded 3: Failure, 1 Cunning back' and 'Keep the 1: Failure'. The log read '(Secret) Lightkeeper rolled' with no 'The'.",
+     "fixed": "'Keep the gilded 3: Failure, 1 Cunning back' and 'Keep the 1: Failure, no drive back'. The Lightkeeper's log reads '(Secret) The Lightkeeper rolled ...' and the slip 'Secret: only you saw this'.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_u17_keep.png",
+      "/tmp/bc8_desk/shots/head_8u8_phone_secret_rolled.png"
+     ]
+    },
+    {
+     "item": "88.5 keep-a-die dice still on touch",
+     "control": "On phone the dice computed animation liftShimmy while waiting for the choice.",
+     "fixed": "The same dice computed animation none on phone while waiting.",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_desk/shots/head_885_phone_keep.png"
+     ]
+    }
+   ],
+   "summary": "I replayed all 22 items on the control (1bc48a0) and HEAD. Twenty-one are fixed, with no blocking issues, no crash and nothing against a decision. #86 is partly fixed: there is one real gap and the rest holds. After the Lightkeeper's desk is reloaded, the Burn open stamp can show on a roll that can no longer be burned. The roster cards carry no drive max or resistance spent, so the check falls back to showing the stamp. Live, End Assignment, and the server restart all behave correctly. Two nits remain: log lines ending in four dots (#75) and 'Bleed, Bleed marks held' (88.1). I replayed items on phone, tablet and laptop where the desk differs. I did not drive the ally select pickers for #87, and 88.3's one-press case was checked on laptop only. All shots are under /tmp/bc8_desk/shots, and I viewed the ones the verdicts rest on. My servers are stopped by PID and both databases are dropped."
+  },
+  {
+   "summary": "22 items checked in Chromium (phone 390x844, tablet 820x1180, laptop 1366x768; GM desk wide as well for 88.15) against control 1bc48a0 and HEAD. 21 are fixed. 88.15 and 88.u27 were already working on the control. I found no blocking issue. Two real gaps remain: the 88.u3 slip is clipped on a phone, and the \"Use this tab\" button is 40px on touch. 88.6 is fixed but still fills conservatively. I did not drive 88.2 for Bram's specialty ability or In the Trenches (only SQL-seeded on his sheet); Death Defy and the LK copy were checked. The 88.4 ticks were seen after a reload, not live. Servers were stopped by PID and both databases dropped. Screenshots are in /tmp/bc8_player/shots, named by item (88_<id>_<head|ctl>_<size>_...); I looked at the key ones for every item, not every file. Scripts are in /tmp/bc8_player/run.",
+   "items": [
+    {
+     "item": "88.2 Used this assignment (both sheets)",
+     "control": "Death Defy with ability_uses=1 shows nothing, on the player sheet and on the Lightkeeper's copy, after a seeded use and after a real Death Defy through the offer",
+     "fixed": "'Used this assignment.' shows under Death Defy on the player sheet (3 sizes) and on the LK read-only copy (3 sizes), and appears live after pressing Use on a real Death Defy offer (SQL: {\"Death Defy\": 1})",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_2_head_player_phone.png",
+      "/tmp/bc8_player/shots/88_2_head_lk_laptop.png",
+      "/tmp/bc8_player/shots/88_2_ctl_lk_laptop.png",
+      "/tmp/bc8_player/shots/88_2_head_dd_after.png"
+     ]
+    },
+    {
+     "item": "88.4 formation parts show a done tick (also on phone strip)",
+     "control": "No tick on any section or strip numeral at any stage",
+     "fixed": "Tick on the section title and on the strip numeral with an sr-only 'done'. Stage by stage: question vote ticks I; suggesting a name alone does not tick II; the name vote does; house, ability and insignia tick III to V; VI ticks only once every other member has an accepted relationship or my own proposal, and not when only one is answered. Same on tablet and laptop (laptop has no strip)",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_4_head_phone_s7_allrel.png",
+      "/tmp/bc8_player/shots/88_4_head_laptop_s7_allrel.png",
+      "/tmp/bc8_player/shots/88_4_ctl_phone_s7_allrel.png"
+     ]
+    },
+    {
+     "item": "88.6 Notebook Contents lines on a phone",
+     "control": "With 2-line titles the phone list shows 5 lines at a 403px list; with one-line titles 5",
+     "fixed": "6 lines in both cases, none cut off (6 two-line rows are 390px of 403px)",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_6_head_phone_long.png",
+      "/tmp/bc8_player/shots/88_6_head_phone_mixed.png"
+     ]
+    },
+    {
+     "item": "88.8 owed-scar banner wording",
+     "control": "\"Bram Holt's Brain track is full.\" over a cleared track, on all 3 sizes",
+     "fixed": "\"Bram Holt took a fourth Brain mark; the track is cleared and a scar is owed.\" on all 3 sizes",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_8_head_phone_banner.png",
+      "/tmp/bc8_player/shots/88_8_ctl_phone_banner.png"
+     ]
+    },
+    {
+     "item": "88.9 advancement dialog wording after rollover",
+     "control": "\"The Illumination track is full: 2 advancements for Iris Vane.\" with the track at 2 / 12",
+     "fixed": "\"2 advancements for Iris Vane.\"",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_9_head_phone_dialog.png",
+      "/tmp/bc8_player/shots/88_9_ctl_phone_dialog.png"
+     ]
+    },
+    {
+     "item": "88.11 advancement receipt wording",
+     "control": "Receipt \"+2 nerve drive\" and \"+1 nerve and +1 cunning drive\" while the log says Nerve, Cunning",
+     "fixed": "Receipt \"+2 Nerve drive\" and \"+1 Nerve and +1 Cunning drive\", same as the log",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_11_head_phone_nerve2_receipt.png",
+      "/tmp/bc8_player/shots/88_11_head_phone_split_receipt.png"
+     ]
+    },
+    {
+     "item": "88.14 stale tab Confirm advancement",
+     "control": "Second tab opened: first tab's Confirm looks live, pressing it sends nothing and says nothing (picks stay at 2)",
+     "fixed": "Dialog says \"This desk is open in another tab. Use this tab, then confirm.\", Confirm is aria-disabled, 'Use this tab' is 44px, and after it the Confirm goes through (picks 2 to 0) while the other tab gets the banner",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_14_head_phone_stale.png",
+      "/tmp/bc8_player/shots/88_14_ctl_phone_stale.png"
+     ]
+    },
+    {
+     "item": "88.15 superseded Lightkeeper tab has Use this tab",
+     "control": "Already fine: banner 'This desk is open in another tab...' with Use this tab; pressing it returns the desk (phone, tablet, 1440x900)",
+     "fixed": "Identical to the control (no code change); works at all three sizes",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_15_head_wide_superseded.png",
+      "/tmp/bc8_player/shots/88_15_head_phone_superseded.png"
+     ]
+    },
+    {
+     "item": "88.19 refused sheet edit announced once",
+     "control": "A refused edit (name over the limit) gives 2 role=alert copies of the message",
+     "fixed": "1 copy at phone, tablet and laptop",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_19_head_phone.png",
+      "/tmp/bc8_player/shots/88_19_ctl_phone.png"
+     ]
+    },
+    {
+     "item": "88.20 Chapter House draft says another member changed it",
+     "control": "Status line says 'Not saved yet' for a focused untouched box and for a draft, nothing about the other member",
+     "fixed": "Draft: 'Another member changed this. Leaving the box replaces it.'; focused, untouched: 'Another member changed this. Leave the box to see it.' Phone and laptop. The line says 'Another member', not a name, as the implementer chose",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_20_head_phone_case2.png",
+      "/tmp/bc8_player/shots/88_20_head_laptop_case2.png"
+     ]
+    },
+    {
+     "item": "88.21 Join dialog buttons aligned on a tablet",
+     "control": "Cancel sits 84px in from the dialog's left edge (Ask to join 43px from the right)",
+     "fixed": "Both 43px at tablet and laptop; phone unchanged. The unaffiliated-row form has no Cancel and stays right-aligned",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_21_head_tablet_creatorjoin.png",
+      "/tmp/bc8_player/shots/88_21_ctl_tablet_creatorjoin.png"
+     ]
+    },
+    {
+     "item": "88.u3 relationship two-way hint",
+     "control": "No i by the heading, no placeholder on the disabled answer",
+     "fixed": "Placeholder 'Pick a relationship first' and an i with 'Each direction is its own relationship...'. The slip is cut off on a phone: its right edge is 375px but the clipping parent ends at 341px, so 'to' is lost",
+     "verdict": "partly",
+     "shots": [
+      "/tmp/bc8_player/shots/88_u3_head_phone_slip.png",
+      "/tmp/bc8_player/shots/88_u3_head_laptop_slip.png"
+     ]
+    },
+    {
+     "item": "88.u7 circle spend announced; Train die held note",
+     "control": "No line after a spend; no Train note",
+     "fixed": "'Spent 1 Stitch.' and 'Spent 1 Train.' show and are announced; 'Train die held.' shows and survives reload and End Assignment. Laptop, tablet, phone",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_u7_head_laptop_train.png",
+      "/tmp/bc8_player/shots/88_u7_head_phone_train.png"
+     ]
+    },
+    {
+     "item": "88.u9 empty dispatch says No dispatch yet",
+     "control": "'Location: none / Atmosphere: none' (phone desk part, tablet, laptop)",
+     "fixed": "'No dispatch yet.' on the desk and Circle tab at tablet and laptop, and in the phone's From the Lightkeeper part",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_u9_head_phone_part.png",
+      "/tmp/bc8_player/shots/88_u9_head_laptop_desk.png"
+     ]
+    },
+    {
+     "item": "88.u11 spending closed after End Assignment, reason, refusal, reopen",
+     "control": "End Assignment leaves spending open; a spend after it works",
+     "fixed": "End closes spending; player Circle page says 'Spending is closed until the next assignment starts.' with the buttons aria-disabled; the LK Circle page says 'Closed until the dispatch' with 'Allow spending'; the End receipt and the i name it. A stale desk that still presses Spend gets the 409 and the line shows as an alert (control showed nothing). The next dispatch reopens it with the log line 'Spending is open again: up to two each.'. The paused flag survived a backend restart. LK roster card still says only 'Locked'. Not driven: the LK phone End Assignment path",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_u11_head_phone_refusal.png",
+      "/tmp/bc8_player/shots/88_u11_head_laptop_lk_circle.png",
+      "/tmp/bc8_player/shots/88_u11_head_laptop_restart_reopen.png",
+      "/tmp/bc8_player/shots/88_u11_head_laptop_ended.png"
+     ]
+    },
+    {
+     "item": "88.u14 Adrenaline Rush full drive names",
+     "control": "Buttons NER / CUN / INT, 30px high on a phone, no pressed state, Use disabled with no reason",
+     "fixed": "NERVE / CUNNING / INTUITION at 44px, aria-pressed, a full drive disabled and named 'Cunning, full', the disabled button reads 'Pick a drive', and Use appears after a pick. Phone",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_u14_head_phone_card.png",
+      "/tmp/bc8_player/shots/88_u14_head_phone_picked.png"
+     ]
+    },
+    {
+     "item": "88.u20 Illumination heading name",
+     "control": "Heading name is its whole content ('ILLUMINATION 5 / 12' plus the i)",
+     "fixed": "Heading name 'Illumination 5 of 12' on the player and LK Circle pages, phone and laptop, with the i keeping its own 'About Illumination' name",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_u11_head_laptop_lk_circle.png"
+     ]
+    },
+    {
+     "item": "88.u21 name counter labelled",
+     "control": "Bare '1/5' beside Suggest",
+     "fixed": "'Your suggestions: 1 of 5' and at five 'You have made 5 suggestions.'; phone, tablet and laptop",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_u21_head_phone_five.png",
+      "/tmp/bc8_player/shots/88_u21_ctl_phone_five.png"
+     ]
+    },
+    {
+     "item": "88.u25 Field Notes empty contents line",
+     "control": "Empty Contents list with nothing said",
+     "fixed": "'No field entries yet.' at all three sizes",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_u25_head_laptop.png",
+      "/tmp/bc8_player/shots/88_u25_ctl_laptop.png"
+     ]
+    },
+    {
+     "item": "88.u27 chosen Raise pressed",
+     "control": "Already fine: the chosen Raise has aria-pressed=true (CharacterCreator.jsx is not in the diff)",
+     "fixed": "Same as the control (phone and laptop)",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_u27_head_phone.png"
+     ]
+    },
+    {
+     "item": "88.i3 Stitch with no marks says so",
+     "control": "Armed line reads 'Press again to spend 1 Stitch for the circle.' with no marks",
+     "fixed": "'No marks to clear. Press again to spend it anyway.' with no marks; with a body mark the normal line returns",
+     "verdict": "fixed",
+     "shots": [
+      "/tmp/bc8_player/shots/88_i3_head_laptop_armed.png",
+      "/tmp/bc8_player/shots/88_i3_head_phone_withmark.png"
+     ]
+    }
+   ],
+   "issues": [
+    {
+     "level": "should",
+     "item": "88.u3 relationship i slip clipped on a phone",
+     "where": "Circle formation papers, part VI, 390x844 (RelationshipNegotiation.jsx heading InfoTerm)",
+     "problem": "The slip is 290px wide starting at x=85, but its overflow-hidden parent ends at x=341, so the right edge is cut. 'Each direction is its own relationship: yours to them, and theirs to you.' shows 'and theirs' then 'you.' with 'to' lost. Tablet and laptop are fine.",
+     "fix": "Anchor the slip within the card on a phone (left-0 right-0, as the charter paper's InfoTerm does with anchored={false} and slipClassName) or cap its width to the card."
+    },
+    {
+     "level": "should",
+     "item": "Use this tab button under 44px on touch",
+     "where": "shared/ConnectionBanner.jsx (seen in 88.15, on a phone and a tablet with touch)",
+     "problem": "The banner's 'Use this tab' (and its Lightkeeper and player versions) measures 40px on a touch viewport. DESIGN.md asks for 44px touch targets. The dialog's own Use this tab from 88.14 is 44px. This predates the change.",
+     "fix": "Add [@media(pointer:coarse)]:min-h-[44px] to the banner button."
+    },
+    {
+     "level": "nit",
+     "item": "88.6 still fills conservatively",
+     "where": "NotebookView.jsx TOC_ROW_NARROW=60, phone",
+     "problem": "With one-line titles the phone list shows 6 lines in a space that holds 8 (rows are 44px), leaving a gap of about two lines. With two-line titles it is exact. By design (worst case), but not 'measure the first row' as triaged.",
+     "fix": "Optional: measure the rendered rows and fall back to the constant."
+    },
+    {
+     "level": "nit",
+     "item": "Lightkeeper roster card says 'Locked' after End Assignment",
+     "where": "Lightkeeper desk, roster tab, Circle abstract card, after End Assignment",
+     "problem": "The Circle page says 'Closed until the dispatch' but the roster card still says 'Spending Locked', with no reason.",
+     "fix": "Optionally use the same closed-until-dispatch word on the abstract card."
+    },
+    {
+     "level": "nit",
+     "item": "Stale-tab dialog footer is tall on a phone",
+     "where": "AdvancementModal, 390x844, connection not open",
+     "problem": "The sticky footer (line, Use this tab, Confirm, Later) takes about 360px of the 844px screen, so the picks are small.",
+     "fix": "Optional: put Use this tab and Later on one row."
+    },
+    {
+     "level": "nit",
+     "item": "Refusal line from a refused sheet edit stays after Cancel",
+     "where": "InvestigatorDossier.jsx, after a refused edit and Cancel",
+     "problem": "After Cancel the refusal stays once under the sheet until the next edit. Same on the control, so not new; it is now one copy instead of two.",
+     "fix": "Optional: clear sheetEditError when the editor is cancelled."
+    }
+   ]
+  }
+ ],
+ "repair": {
+  "fixed": [
+   {
+    "issue": "#86 Burn open stamp shows after a Lightkeeper reload for a roll that can no longer be burned (partly)",
+    "what": "rolls.py send_felt_roll now takes the db (endpoint.py passes it) and marks a player's felt roll settled: true when the roller has no resistance left in the action's drive or is dead. The live dice_thrown carries the same settled: true, and gameStore.js reads it on a live frame, so a reloaded desk that knows the roller only from the roster card no longer stamps it. The stored felt payload is left unchanged. Documented in WEBSOCKET.md (step 7 and the dice_thrown row).",
+    "checked": "New test test_the_felt_roll_of_a_roller_with_no_resistance_left_comes_back_settled. In Chromium on 8041/4041, laptop Lightkeeper desk: on reload the stamp shows with resistance left and is gone with nerve_resistance_spent=1 (replay settled). A live roll with no resistance shows no stamp, and with resistance left the stamp shows. On a phone reload the stamp is not in the DOM. Shots are in /tmp/claude-0/-home-user-TTRPG-VTT-CO/eefd353b-f870-53df-bcc5-dd094459528b/scratchpad/bc/shots/86_*.png"
+   },
+   {
+    "issue": "Seam: the player's Circle Resources i said the End Assignment closing rule twice (CircleView.jsx:954)",
+    "what": "The appended sentence is dropped. The i now passes refillRule(...) alone, as CirclePage does.",
+    "checked": "Chromium, laptop: the slip text contains the closing rule exactly once (shot u11_resources_i.png)."
+   },
+   {
+    "issue": "Seam: an old spend refusal came back as role=alert each time the Circle tab was reopened (CircleView.jsx:656-664)",
+    "what": "The refusal now shows for 8 seconds counted from spendRefusal.at. On a remount after that it is not shown again, and inside the 8 seconds it stays only for the time left.",
+    "checked": "Chromium, laptop: a refusal was injected on the page's own socket and shown once. Leaving the tab and coming back within 8 seconds still showed it. After 8 seconds plus a tab switch it was gone (shots u11_refusal_shown.png and u11_refusal_after_remount.png)."
+   },
+   {
+    "issue": "88.u3 the relationship i slip was clipped on a phone",
+    "what": "RelationshipNegotiation.jsx: the h4 is now relative, and the InfoTerm uses anchored={false} with slipClassName 'left-0 top-full mt-1 w-[min(18rem,100%)]'. The slip now sits inside the heading's width.",
+    "checked": "Chromium, unsealed campaign, part VI: the slip lies inside its clipping box on phone (85-305 of 49-341), tablet and laptop, and the whole text shows (shot u3_phone_slip.png)."
+   },
+   {
+    "issue": "Use this tab (ConnectionBanner) measured 40px on touch",
+    "what": "Added [@media(pointer:coarse)]:min-h-[44px] to both banner buttons (Use this tab or Reconnect now, and Back to chapter hub).",
+    "checked": "Chromium: 44px for the player on a phone and for the Lightkeeper on a tablet, still 40px on a laptop. Pressing it takes the desk back on all three."
+   },
+   {
+    "issue": "Nit: the player's head label read 'Spending locked' while End Assignment had closed spending, and the Lightkeeper's ledger card read 'Locked'",
+    "what": "CircleView head label and CircleLedger.jsx Spending row now read 'Closed until the dispatch' when backstory_answers.spending_paused is set, the same branch as CirclePage.",
+    "checked": "Chromium, laptop: both read 'Closed until the dispatch' after End Assignment. After a dispatch the player reads 'Your spends 0 / 2' and the ledger reads Open."
+   },
+   {
+    "issue": "Nit: the Stitch ask with no marks was two sentences",
+    "what": "Changed to 'Press again to spend 1 Stitch with no marks to clear.'",
+    "checked": "Chromium, laptop: armed line text verified (shot i3_stitch_ask.png)."
+   },
+   {
+    "issue": "Nit #73: lock order (circle locked before the death's character row was flushed)",
+    "what": "_circle_at_death calls ctx.db.flush() before locking the circle, so the character row is locked first, as in release_member. The later flush stays.",
+    "checked": "New test test_a_death_locks_its_own_row_before_the_circle holds the circle lock in another session and sees the character row already locked. Without the flush it fails, which I confirmed."
+   },
+   {
+    "issue": "Nit #75: Edit sheet log lines ended in four dots",
+    "what": "The sheet edit line takes no full stop when it ends in '...'. The pinned test was updated.",
+    "checked": "test_fix8_circle passes. Over the socket the line ends '...with few pockets...', and the Lightkeeper's log in Chromium shows it without the fourth dot."
+   },
+   {
+    "issue": "Nit 88.1: 'Bleed, Bleed marks held'",
+    "what": "glanceOf counts equal types: '2 Bleed marks held: Death Defy?' (different types are joined with 'and').",
+    "checked": "Chromium, laptop Lightkeeper roster: with two seeded Bleed marks the card reads '2 Bleed marks held: Death Defy?' (shot 881_held_two.png)."
+   },
+   {
+    "issue": "Protocol docs (partly): departed_spends missing from the reserved-key sentence and R12",
+    "what": "WEBSOCKET.md circle_backstory_update now names departed_spends as refused with 403. R12 lists departed_spends and spending_paused.",
+    "checked": "Read the edited lines; no em dashes."
+   },
+   {
+    "issue": "Nit, test coverage: reopening spending through update_circle was not tested",
+    "what": "New test test_a_dispatch_through_update_circle_opens_spending_too. An Illumination change does not reopen spending; a location does, with the line, and the flag is cleared.",
+    "checked": "Passes in the full suite."
+   },
+   {
+    "issue": "#79 (should, optional fix): the Non-Combatant card goes with no word after a restart",
+    "what": "I took the finding's second option. FAQ.md now says that a desk open through a restart drops its ally offer cards, Non-Combatant included, with no note, because the server sends back only the offers it still holds. This keeps decisions_fix6 1 (in-memory ally offers expire cleanly) and matches Premonitions. No code note was added for Non-Combatant alone.",
+    "checked": "Read the FAQ paragraph; it is consistent with line 120's existing wording."
+   }
+  ],
+  "skipped": [
+   {
+    "issue": "#82 choice: an investigator outside any campaign can never be revived",
+    "why": "Decision 4 says only the Lightkeeper may Revive and the server refuses a player's Revive, so the choice fits decisions8. Left as built for the organiser to ask Robert whether an unaffiliated investigator (ctx.camp_id None) may revive itself."
+   },
+   {
+    "issue": "88.u11 choice: spending reopens on any dispatch write after End Assignment, and spending the Lightkeeper locked herself stays locked",
+    "why": "Fits decision 9 and the triage's reading. Ask Robert."
+   },
+   {
+    "issue": "#77 choice: the kept spend count follows the player, so it carries to a different investigator of the same player",
+    "why": "Fits decision 3 and #41's per-player rule. Ask Robert."
+   },
+   {
+    "issue": "Em dash in the changed roll line 'The Lightkeeper rolled \u2014 ...' (rolls.py:624)",
+    "why": "It is the existing format of every roll and burn log line, and tests pin it. Changing one line alone would make the formats inconsistent, so it is left for Robert to decide on all roll lines at once."
+   },
+   {
+    "issue": "#86 known gap: a player's secret roll does not clear the stamp live until the Lightkeeper reloads",
+    "why": "Documented in QUIRKS by the implementer. A secret roll sends the Lightkeeper nothing by design, so a live signal would leak that a secret roll happened. Ask Robert."
+   },
+   {
+    "issue": "Join toast drops Reject (it sits behind View on the Requests page)",
+    "why": "A UX choice from 88.16 that fits the decisions. Ask Robert."
+   },
+   {
+    "issue": "88.12 clamps a raise past 12 rather than refusing it",
+    "why": "Decision 8 allows 'refuses or clamps'; the triage chose clamp. Ask Robert."
+   },
+   {
+    "issue": "88.6 Notebook contents density fills conservatively (6 of a possible 8 one-line rows on a phone)",
+    "why": "Nit, optional. The browser check marked it fixed: no row is cut off, and two-line titles fit exactly. Measuring rendered rows is a larger change than a cheap nit."
+   },
+   {
+    "issue": "#80 refusal text never shown on the desk (the Roll buttons are disabled)",
+    "why": "No change needed, per the finding."
+   },
+   {
+    "issue": "#86 stamp i is about 28px on a phone",
+    "why": "It is consistent with every other InfoTerm i in the app. The finding says no change is needed unless i marks are raised app-wide."
+   },
+   {
+    "issue": "88.7 at deploy: investigators let in before the deploy lose the Let in stamp once",
+    "why": "Accepted per the finding; note it in the PR. No code change."
+   },
+   {
+    "issue": "#73 before the seal a death fills the pools and writes the 'now hold at most N' line",
+    "why": "Harmless, because the seal fills them anyway. The finding says none is needed."
+   },
+   {
+    "issue": "Stale-tab advancement dialog footer is tall on a phone; a refused sheet edit's line stays after Cancel",
+    "why": "Optional nits. The second predates this round, and after Cancel the line still says why the change was not saved, so clearing it is not plainly right."
+   },
+   {
+    "issue": "88.15 'not checked' in the final review",
+    "why": "The player browser check drove it at all three sizes and it matched the control; nothing to fix."
+   }
+  ],
+  "commits": [
+   "b4a83b0 Close the Burn open stamp for a roller with no resistance left",
+   "1294460 Lock a death's row before the circle, trim the edit line's full stop",
+   "fd39a1c Tidy the player's Circle page and two small slips after round 8"
+  ],
+  "tests": "The targeted run (test_campaigns, test_fix8_circle, test_fix8_death, test_fix8_restarts, test_json_strings, test_surface, test_ws_circle, test_ws_connect, test_ws_gm_view, test_ws_marks, test_ws_rolls, test_ws_sheet_edits, test_00_startup) gave 723 passed. The full backend suite gave 2055 passed and 1 skipped (373s). Both used throwaway databases with CORS_ORIGINS set, and both were dropped. The new lock-order test fails without the flush, which I confirmed. The frontend builds with vite (npx vite build --outDir /tmp/build_main8). Browser checks ran on backend 8041 and site 4041 with database bc_repair_8041 and all passed. They covered #86 (5 checks, laptop and phone), the Circle page fixes (9 checks, laptop), the relationship slip (phone, tablet, laptop), the banner (phone, tablet, laptop) and the #75 log line. Scripts and shots are in /tmp/claude-0/-home-user-TTRPG-VTT-CO/eefd353b-f870-53df-bcc5-dd094459528b/scratchpad/bc. The servers were stopped by PID (uvicorn, and vite preview 13612), bc_repair_8041 was dropped, and the working tree is clean. Nothing was pushed."
+ }
+}
