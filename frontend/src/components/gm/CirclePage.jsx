@@ -361,7 +361,10 @@ export const CirclePage = () => {
   // the Lightkeeper's changes to it until then (issue #74: her chapter house replaced theirs)
   const sealed = !!circle?.is_finalized;
   const papersName = nameOnTheSeal(circleCreation?.votes)?.value || '';
-  const papersHouse = (circleCreation?.backstoryAnswers?.chapter_house || '').trim();
+  // A chapter house she wrote before this round, with none from the players, is the one
+  // the seal keeps (vtt/routers/circles.py), so it shows until they write theirs
+  const papersHouse = (circleCreation?.backstoryAnswers?.chapter_house || '').trim()
+    || (circle?.chapter_house_location || '').trim();
 
   // The report's worth: the circle's questions, answered here once, and the keys the
   // investigators' reports filed (game/illumination.js). The ticks and the added total are
@@ -371,8 +374,10 @@ export const CirclePage = () => {
   const answers = thisTally.answers;
   const tally = tallyReports(investigators, reports, answers);
   // Who has not filed, named over Add Illumination once reports are due, which does not
-  // wait for them (decision 5, playtest 3, missing-report-silent)
-  const notFiled = reportsDue(circle, reports) ? notFiledLine(unfiledNames(investigators, reports)) : '';
+  // wait for them (decision 5, playtest 3, missing-report-silent). The add asks first while
+  // anyone has not filed, due or not (fix round 8, decision 7)
+  const unfiled = unfiledNames(investigators, reports);
+  const notFiled = reportsDue(circle, reports) ? notFiledLine(unfiled) : '';
   const addTally = () => {
     if (tally.total <= 0 || thisTally.added != null) return;
     gmAddTally(circId, tally.keys);
@@ -602,16 +607,19 @@ export const CirclePage = () => {
                 <span className="font-sans font-black text-xs uppercase tracking-widest text-ink">Total +{tally.total}</span>
                 {thisTally.added != null ? (
                   <span role="status" className="font-serif italic text-sm text-seal-green">Added {thisTally.added} Illumination</span>
-                ) : notFiled ? (
+                ) : unfiled.length > 0 ? (
                   // While reports are unfiled the add asks first: it goes on the track once, and
                   // keys filed later do not count (fix round 8, decision 7). With every report
-                  // filed it stays one press.
+                  // filed it stays one press. Before reports are due no one is named above, so
+                  // the question says why without them
                   <ConfirmAction
                     className="contents"
                     hintClassName="basis-full justify-end"
                     onConfirm={addTally}
                     disabled={tally.total <= 0}
-                    armedHint={`Press again to add ${tally.total} Illumination without their keys.`}
+                    armedHint={notFiled
+                      ? `Press again to add ${tally.total} Illumination without their keys.`
+                      : `Press again to add ${tally.total} Illumination before any report is filed.`}
                     renderButton={(armed, props) => (
                       <button {...props}
                         className={`min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1.5 font-sans text-xs font-black uppercase tracking-widest border rounded-sm disabled:opacity-40 ${
@@ -671,7 +679,9 @@ export const CirclePage = () => {
             </h3>
             <span className={`flex items-center gap-1.5 font-sans text-xs font-bold uppercase tracking-wider ${circle?.resources_editable ? 'text-seal-green' : 'text-sepia'}`}>
               {!circle?.resources_editable && <SafeIcon name="GiPadlock" size={13} />}
-              {circle?.resources_editable ? 'Spending open' : 'Spending locked'}
+              {/* Closed by End Assignment, the next dispatch opens it (fix round 8, decision 9) */}
+              {circle?.resources_editable ? 'Spending open'
+                : circle?.backstory_answers?.spending_paused ? 'Closed until the dispatch' : 'Spending locked'}
             </span>
           </div>
 
