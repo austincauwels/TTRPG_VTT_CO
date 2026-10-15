@@ -130,13 +130,15 @@ async def send_held_roll(websocket, character):
         await websocket.send_json({"type": "roll_result", "payload": payload})
 
 
-async def send_felt_roll(websocket, campaign_id):
+async def send_felt_roll(websocket, campaign_id, db=None):
     """The Lightkeeper's desk opening again (a reload, another device) is sent the newest
     roll on her felt, marked replayed (it plays no dice): her own as roll_result, or a
     player's as the dice_thrown that put it there, with its outcome as it is now. Her felt
     used to come back empty (#40). A player's roll its player can no longer burn on (a
-    newer roll of another action, or a secret one, answers a burn now) comes with
-    settled: true, so her felt does not stamp it "Burn open" (#86)."""
+    newer roll of another action, or a secret one, answers a burn now, or the roller has
+    no resistance left in the action's drive or is dead) comes with settled: true, so her
+    felt does not stamp it "Burn open" (#86). Her reloaded desk knows the roller only from
+    the roster card, which carries no drive maximum or resistance spent."""
     felt = _felt_roll.get(campaign_id)
     if felt is not None:
         kind, payload = felt
@@ -145,6 +147,11 @@ async def send_felt_roll(websocket, campaign_id):
             last = _last_roll.get(payload["character_id"])
             if last is None or last["action"] != payload["action"] or last.get("secret"):
                 extra["settled"] = True
+            elif db is not None:
+                roller = db.query(Character).filter(Character.id == payload["character_id"]).first()
+                if (roller is None or roller.is_dead
+                        or resistance_left(roller, drive_for_action(payload["action"])) <= 0):
+                    extra["settled"] = True
         await websocket.send_json({"type": "roll_result" if kind == "own" else "dice_thrown",
                                    "payload": {**payload, "replayed": True, **extra}})
 
@@ -227,8 +234,14 @@ async def _dice_thrown(ctx, character, action, roll, rating, kept=None, settles=
     # A player's roll is now the newest on the Lightkeeper's felt (her own is: handle_roll)
     if character is not None and ctx.camp_id is not None:
         _felt_roll[ctx.camp_id] = ("table", payload)
+    # A roller with no resistance left in the action's drive cannot burn on it: settled,
+    # so the Lightkeeper's felt does not stamp it "Burn open" from a roster card that
+    # carries no resistance (#86). Not stored on the felt: send_felt_roll works it out again
+    frame = payload
+    if character is not None and (character.is_dead or resistance_left(character, drive_for_action(action)) <= 0):
+        frame = {**payload, "settled": True}
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
-        "type": "dice_thrown", "payload": payload}, ctx.db, exclude=ctx.channel)
+        "type": "dice_thrown", "payload": frame}, ctx.db, exclude=ctx.channel)
 
 
 async def _log_roll(ctx, character, message, secret=False, log_type="roll"):

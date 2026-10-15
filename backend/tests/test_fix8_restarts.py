@@ -122,6 +122,27 @@ def test_a_secret_roll_after_the_felt_roll_closes_its_burn_on_a_reload(client, d
         assert thrown["payload"]["settled"] is True and [d["value"] for d in thrown["payload"]["roll"]["dice"]] == [2]
 
 
+def test_the_felt_roll_of_a_roller_with_no_resistance_left_comes_back_settled(client, dice):
+    """#86: her reloaded desk knows the roller only from the roster card, which carries no
+    drive maximum or resistance spent, so it read every player's open roll as burnable and
+    stamped "Burn open" on a roll the server would refuse to burn. The felt roll comes
+    back settled when the roller has no resistance left in the action's drive, and still
+    open while some is left."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=3)
+    with support.ws_connect(client, a["id"]) as wa:
+        dice(2)
+        wa.send("roll", action="move", drive_spent=0)
+        wa.sync()
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        [thrown] = support.of_type(gm.sync(), "dice_thrown")
+        assert "settled" not in thrown["payload"]
+    support.update(Character, a["id"], nerve_resistance_spent=1)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        [thrown] = support.of_type(gm.sync(), "dice_thrown")
+        assert thrown["payload"]["settled"] is True and thrown["payload"]["character_id"] == a["id"]
+
+
 # --- #81: a mark dealt to a closed desk beside a stored hold -------------------------------------
 
 def test_a_mark_dealt_to_a_closed_desk_lands_the_held_one_first(client):

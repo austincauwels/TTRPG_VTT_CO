@@ -168,7 +168,7 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
             await send_held_mark(websocket, character)
             await send_open_intercepts(websocket, character)
         elif is_gm and campaign is not None:
-            await send_felt_roll(websocket, campaign.id)
+            await send_felt_roll(websocket, campaign.id, db)
         # The Activity Log lines this channel was sent lately, so the desk's log is whole
         # again after a reload or a drop. Sent on every connect, empty too, as the last of
         # the connect frames: a desk that showed an open roll and was not sent it again

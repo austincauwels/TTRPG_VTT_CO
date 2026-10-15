@@ -1137,7 +1137,7 @@ const useGameStore = create(
             }
             else if (!own) {
               playDiceTumble();
-              if (Array.isArray(p.roll?.dice)) set({ tableRoll: p, tableRollSettled: p.settles === false });
+              if (Array.isArray(p.roll?.dice)) set({ tableRoll: p, tableRollSettled: p.settles === false || p.settled === true });
               // They settle this desk's own roll once its result is known: a gilded roll
               // whose die is still to be kept is decided later, after these dice. A die kept
               // from a roll End Assignment settled does not (settles: false)
