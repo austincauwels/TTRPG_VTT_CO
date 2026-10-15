@@ -1,0 +1,1057 @@
+[
+ {
+  "group": "death",
+  "impl": {
+   "done": [
+    {
+     "item": "#72 Scar owed lost on a server restart",
+     "what": "New column characters.scar_pending (models.py, db.py add_columns BOOLEAN DEFAULT FALSE) replaces the in-memory awaiting_scar set. marks.py:298 sets it before the commit, and handle_apply_scar clears it for any scar, so a death clears it too. The sheet (serializers.py), the roster item (campaigns.py) and Resuscitation (rolls.py:857) read the column. The awaiting_scar imports are gone.",
+     "checked": "test_fix8_death.test_a_scar_owed_survives_a_restart and test_the_death_clears_the_owed_scar. In Chromium: dealt a fourth mark, stopped the 8300 backend by PID, started it again on the same database, and the Lightkeeper's roster card still read 'Incapacitated: scar owed'."
+    },
+    {
+     "item": "#73 Death lowers the resource maximum silently",
+     "what": "character.py handle_apply_scar: on a new death, _circle_at_death locks the campaign circle, flushes, and calls lower_resources_to_pool after the seal (fill_resources before it), all in the death's commit. After the death line it sends circle_update to the campaign plus one field line: 'Stitch, Refresh and Train now hold at most N each.'",
+     "checked": "test_fix8_death covers three cases: the pools come down on every desk with the line, nothing is raised and waiting earn-backs are cut, and lifting the death raises nothing. Flipped test_ws_circle.test_a_death_and_its_undo_reach_the_other_players in place. In Chromium at phone, tablet and laptop, Ada records her fourth scar from the banner, and the Lightkeeper's roster abstract and Circle page and a living player's Circle page all go from 4/4/3 of 4 to 3 of 3 live, with the log line."
+    },
+    {
+     "item": "#76 Dead can file a report",
+     "what": "Added submit_assignment_report to DEAD_REFUSED in ws/access.py, which gives the existing 409 '<name> is dead: the sheet is a record.'",
+     "checked": "test_fix8_death.test_the_dead_file_no_report"
+    },
+    {
+     "item": "#77 Leave and rejoin resets the spend count",
+     "what": "assignment.py has new helpers. keep_departed_spends runs in release_member before release_from_campaign and stores the count in the circle's backstory_answers.departed_spends, keyed by player. take_departed_spends runs in engine.approve_investigator and in rejoin (both now lock the circle) and takes max(current, kept). clear_paperwork pops the key at End Assignment, without_reports strips it from circle frames, and RESERVED_ANSWERS includes it so a player cannot write it.",
+     "checked": "test_fix8_death covers five cases: the same investigator coming back, another investigator of the same player, a rejoin, End Assignment resetting the count, and a player being unable to write the key."
+    },
+    {
+     "item": "#82 Player can self-revive",
+     "what": "access.py _revive refuses a player socket's revive_character with 403 'Only the Lightkeeper revives an investigator.' It runs after the dead-sheet check, so the dead keep their 409. The log line is now 'The Lightkeeper revived <name>.'",
+     "checked": "test_fix8_death covers the refusal, the Lightkeeper's revive and an unaffiliated investigator. Flipped in place: test_ws_marks revive tests, test_surface WS_CASES (now sent from the Lightkeeper's socket), test_ws_circle Nobody Left Behind, and two test_ws_connect frame tests (now on refill_resources). In Chromium at laptop, pressing the player's Revive got the 403 refusal, the character stayed incapacitated, and the page logged no errors."
+    },
+    {
+     "item": "88.1 Roster card shows no held mark",
+     "what": "CharacterRosterItem has a new field held_marks (Optional dict, the sheet's {ability, mark_types}). to_item fills it for the Lightkeeper only. glanceOf in InvestigatorBusinessCard.jsx adds 'Bleed mark held: Death Defy?' (several types are joined, and the line becomes 'marks').",
+     "checked": "test_fix8_death.test_the_roster_card_says_a_mark_is_held. test_campaigns.test_roster and test_investigators were updated in place, and the openapi snapshot regenerated. In Chromium at phone, tablet and laptop: the card shows the line after the desk loads the REST roster, and the line goes live when Cass uses Death Defy."
+    },
+    {
+     "item": "88.7 Let in mark only in one browser",
+     "what": "New column characters.let_in. engine.approve_investigator and rejoin set it, and release_member clears it. approve_character clears it when the character's desk is already open. endpoint.py clears it when the character's own socket opens as an active member, before the sheet goes out. It is serialized as let_in in get_char_dict and CharacterSummaryItem (/api/users/{id}/characters), true only while the character is active and alive. PlayerRegistryPage.jsx shows the stamp for char.let_in or for letInIds.",
+     "checked": "test_fix8_death has three tests for this. test_users was updated in place. In Chromium at phone, tablet and laptop, an approval was made while no page was open. Two separate browser contexts both show 'Let in: press Play'. After Play in browser A, browser B shows no mark once it reloads."
+    },
+    {
+     "item": "88.8 Owed-scar banner says the track is full",
+     "what": "MainDeskView.jsx banner now reads 'A scar is waiting. <name> took a fourth <Brain> mark; the track is cleared and a scar is owed.' The mark name is left out when the type is unknown.",
+     "checked": "In Chromium at phone, tablet and laptop: Bram takes a fourth Brain mark, passes on Death Defy and presses Decide later. The screenshots show the new wording."
+    },
+    {
+     "item": "#84 Let-in Play button name lacks Play",
+     "what": "PlayerRegistryPage.jsx: the row button has aria-label 'Play <name>, <campaign>' (with ', dead' for a dead investigator) and aria-describedby pointing at the stamp's id.",
+     "checked": "Playwright ariaSnapshot at phone, tablet and laptop: the button's name is 'Play Wren Hollis, The Ghost Hours', and its description is 'Let in: press Play'."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "WEBSOCKET.md R12 (section 9) list of backstory_answers keys",
+     "why": "That line belongs to the restarts group's section, and the charter group may add spending_paused to the same line. departed_spends is documented in the assignment.py module docstring instead."
+    },
+    {
+     "item": "FAQ.md :120 restart paragraph (owed scar now survives a restart)",
+     "why": "FAQ :120 belongs to the restarts group. The restart fact for the owed scar is recorded in QUIRKS.md (the fix round 6 restart block) and in FAQ's scar-sequence paragraph."
+    },
+    {
+     "item": "Showing the player's revive refusal on the desk",
+     "why": "The player's Revive button is removed by the ux group (InvestigatorDossier.jsx). On this branch, pressing it gets the 403 and nothing changes, with no on-screen message."
+    }
+   ],
+   "choices": [
+    "#77: the kept spend count is keyed by the player (user id, or 'c<id>' for a character with no player), not by the character. This follows #41's rule that the two spends follow the player, so a player who leaves and comes back with a different investigator in the same assignment also keeps the count.",
+    "#77: the kept counts live in circles.backstory_answers.departed_spends (no new column). The key is removed from the dict when it empties, stripped from every circle frame, and refused as a circle_backstory_update key.",
+    "#73: the 'Stitch, Refresh and Train now hold at most N each.' line is written on every death in a campaign that has a circle, even when no pool was above the new maximum, because the maximum always drops. Before the seal the pools are filled to the new pool, as an approval or release does.",
+    "#73: announce_downed still sends its own circle_update for a circle with Nobody Left Behind. That is a harmless second frame, kept to avoid touching circle.py.",
+    "#82: the refusal is 403 and applies to every player socket, unaffiliated characters included. It runs after the dead-sheet check, so a dead player's revive still gets the 409 dead refusal.",
+    "88.1: the roster's held_marks uses the same shape as the sheet ({ability, mark_types} or null), not a list. The card line is '<Type> mark held: <Ability>?'.",
+    "88.7: the endpoint clears let_in before the connect-time character_update (rather than after the connect frames), so the sheet agrees with the database and the block stays away from the restarts group's activity_history hunk. An approval made while the character's desk is already open sets no mark. The registry may show the stamp briefly when returning to the hub until the book reloads the list.",
+    "88.7: let_in was also added to CharacterSummaryItem in vtt/routers/users.py and vtt/schemas.py, because the registry reads /api/users/{id}/characters, not the sheet. users.py is not owned by any group.",
+    "#84: the stamp stays visible and becomes the button's description, so the computed name starts with Play.",
+    "Docs: besides my rows, I made two one-phrase in-place edits in sections owned by the restarts group, because they described my change: WEBSOCKET.md section 1's dead-refusal list gains submit_assignment_report, and section 4.5's fourth-mark paragraph says scar_pending is stored rather than held in memory as awaiting_scar. I also updated the FAQ.md fix round 7 Let in sentence (line 300) in place."
+   ],
+   "protocol": [
+    "DB column characters.scar_pending BOOLEAN DEFAULT FALSE (replaces in-memory awaiting_scar)",
+    "DB column characters.let_in BOOLEAN DEFAULT FALSE",
+    "Character sheet dict (character_update, member_update, GET /api/investigators/{id} CharacterSheet) gains let_in: bool",
+    "REST GET /api/users/{id}/characters CharacterSummaryItem gains let_in: bool",
+    "REST GET /campaign/{id}/roster CharacterRosterItem gains held_marks: {ability, mark_types} | null (Lightkeeper only)",
+    "WS revive_character from a player socket: action_rejected 403 'Only the Lightkeeper revives an investigator.'; log line now 'The Lightkeeper revived <name>.'",
+    "WS submit_assignment_report from a dead investigator: action_rejected 409 '<name> is dead: the sheet is a record.' (DEAD_REFUSED)",
+    "WS apply_scar death: now also circle_update to the campaign and activity_log 'Stitch, Refresh and Train now hold at most N each.' (log_type field) after the death line",
+    "circles.backstory_answers JSON gains server-only key departed_spends {player key: count}, stripped from circle frames, reserved from circle_backstory_update, cleared at End Assignment"
+   ],
+   "commits": [
+    "4ef1396 Death round: owed scar stored, pools at death, revive, report, spends, Let in",
+    "af64e08 Death round: tests for the stored scar, the death's pools, spends and Let in",
+    "12b3908 Death round: docs for the stored scar, the death's pools, revive and Let in"
+   ],
+   "tests": "[\"All on throwaway databases. New tests/test_fix8_death.py: 17 passed.\", \"On a fresh database: test_00_startup, test_fix8_death, test_users, test_investigators, test_surface, test_access, test_ws_connect and test_ws_character, 721 passed.\", \"Earlier run: test_00_startup, test_ws_marks, test_ws_circle, test_campaigns, test_rest_broadcasts, test_ws_rolls, test_circle_rest, test_deletion, test_ws_gm_view and test_ws_sheet_edits. 622 passed and 2 failed (test_roster's field list and the death broadcast test). Both were flipped in place and then passed.\", \"Frontend: npx vite build --outDir /tmp/build_death_8300 succeeded.\", \"Chromium checks: the scripts are in /tmp/death_8300 (c2, c2b, c3, c4) and the screenshots in /tmp/death_8300/out_8300. Every check passed at phone, tablet and laptop, except #82 and #72, which were checked at laptop only. No page errors.\", \"Servers on 8300 and 4300 were stopped by PID and every fix_death database was dropped.\"]"
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "should",
+     "where": "frontend/src/components/campaignSelector/PlayerRegistryPage.jsx:116",
+     "problem": "88.7: the stamp shows when char.let_in OR the browser's local letInIds holds the id. A browser that had the hub open while the request was waiting (noteAwaiting/markLetIn put the id in persisted letInIds) keeps showing 'Let in: press Play' after the player has pressed Play on another device. The server's let_in is false by then. I reproduced it in Chromium: gh's request was waiting with the hub open on a laptop (C) and a phone (D). After the approval and a 15 s poll, both had letInIds [5]. Play in C set the DB let_in to f. D, after a reload, still showed the stamp (screenshot /tmp/death_8310/out_8310/r2_D_after.png). The finding (let-in-mark-browser-only) asked for the mark to come from the server, not from browser storage. This is the same two-device case the item is about, with the fault now running the other way.",
+     "fix": "Let the server decide whenever the row carries the field: const letIn = !char.is_dead && ('let_in' in char ? char.let_in : letInIds.includes(char.id)). Or, in the registry, call forgetLetIn for an active row whose let_in is false. Either stays in PlayerRegistryPage.jsx and leaves the store alone."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/handlers/marks.py:71, backend/vtt/ws/handlers/rolls.py:27",
+     "problem": "Removing the awaiting_scar imports touches import lines in files the restarts group owns. The triage allows only :298 and :857. These edits are needed, but they are more hunks for the hand merge.",
+     "fix": "Keep them, and name them in the PR and merge notes so the restarts merge expects them."
+    },
+    {
+     "level": "nit",
+     "where": "backend/tests/test_ws_connect.py:259-305, docs/refactor/WEBSOCKET.md sections 1 and 4.5",
+     "problem": "Two tests in test_ws_connect.py (the restarts group's flip file) were rewritten to use refill_resources. WEBSOCKET.md sections 1 and 4.5 (restarts-owned) were edited in place. The implementer disclosed all of this, but it adds merge risk. The rewritten frame tests no longer exercise a player-socket frame with no payload.",
+     "fix": "Flag it in the merge notes. Optionally make the payload-less frame test a player action that needs no payload (for example update_pen_font with null), so it still covers a player socket."
+    },
+    {
+     "level": "nit",
+     "where": "backend/tests/test_ws_marks.py:1296-1309",
+     "problem": "test_revive_character dropped its assertion that the Lightkeeper's desk gets member_update followed by the log line (gm.drain()). That coverage is weaker than before.",
+     "fix": "Assert support.types(gm.sync()) or the drained gm frames contain member_update and the 'The Lightkeeper revived' line."
+    },
+    {
+     "level": "nit",
+     "where": "backend/tests/test_fix8_death.py:24",
+     "problem": "test_a_scar_owed_survives_a_restart never simulates a restart. It only reconnects. That still proves the value comes from the column, because no module state exists any more, but the name promises more than the test does.",
+     "fix": "Optionally expire or close the session, or reset a manager, the way the restart tests do. Otherwise leave it as is."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/access.py:579-583",
+     "problem": "#82 refuses revive_character on every player socket, unaffiliated ones included. An investigator released while incapacitated stays incapacitated with no way to stand while unaffiliated, until a new Lightkeeper revives it. This follows decision 4 literally, and the implementer listed it under choices.",
+     "fix": "Name it in the PR so Robert can see it. No change is needed."
+    }
+   ],
+   "items_ok": [
+    "#72: characters.scar_pending column (models.py, db.py add_columns BOOLEAN DEFAULT FALSE). It is set before the commit at marks.py:298 and cleared by any apply_scar, a death included. The sheet, the roster (campaigns.py) and Resuscitation (rolls.py:857) read it, and awaiting_scar is gone everywhere. test_00_startup has both the columns test and the legacy-upgrade test.",
+    "#73: _circle_at_death locks the campaign circle before the commit, lowers to the pool after the seal (fill_resources before it), and cap_earn_backs runs. circle_update and 'Stitch, Refresh and Train now hold at most N each.' go to the whole campaign after the death line. gm_update_scars raises nothing when a death is lifted (decisions_fix4 1 kept). In Chromium: the circle went from 6/6/6 to 5/5/5 in the DB, the Lightkeeper's socket got circle_update [5,5,5,5], and both the player's and the Lightkeeper's logs show the two lines (r3_G_after.png). Lock order is the character row then the circle, which matches release and approve.",
+    "#76: submit_assignment_report is in DEAD_REFUSED (409 '<name> is dead: the sheet is a record.'). Tested, and documented in FAQ :147 and WEBSOCKET.md section 1.",
+    "#77: keep_departed_spends runs in release_member before release_from_campaign. take_departed_spends runs under the circle lock in approve_investigator and in rejoin (max with the current count). clear_paperwork pops the key at End Assignment, so the decisions_fix4 2 reset is kept. without_reports strips it from frames, and RESERVED_ANSWERS blocks a player from writing it. Keyed by player, following #41. answers_of returns a new dict, so the JSON change is detected.",
+    "#82: _revive runs after _dead_sheet: a player's revive gets 403 'Only the Lightkeeper revives an investigator.', and a dead player's still gets the 409. The log line is 'The Lightkeeper revived <name>.' test_surface WS_CASES now sends it from the Lightkeeper's socket, and the test_ws_marks and test_ws_circle tests were flipped in place.",
+    "88.1: CharacterRosterItem.held_marks is filled for the Lightkeeper only, and the openapi snapshot and field lists are updated. In Chromium, after a reload, the Lightkeeper's roster card read 'Bleed mark held: Death Defy?'. My live check failed only because my Node Lightkeeper socket took over the browser's channel; the live path is the existing member_update sheet.",
+    "88.7: characters.let_in is set by approve_investigator and rejoin, cleared by release, by an approval while the desk is already open, and by endpoint.py when the desk opens (before the sheet goes out, away from the restarts group's history hunk). It is serialized in the sheet and in CharacterSummaryItem. In Chromium, two contexts (phone and laptop) both showed the stamp. After Play in A, B showed no stamp on reload (when B had not seen the approval itself).",
+    "88.8: the banner now reads '<name> took a fourth <Type> mark; the track is cleared and a scar is owed.', matching ScarModal.",
+    "#84: the registry button's accessible name is 'Play Ada Lark, The Ghost Hours' and its aria-describedby gives 'Let in: press Play'. Checked in Chromium at phone and laptop.",
+    "Backend tests on throwaway databases: 943 passed (test_00_startup, test_fix8_death, test_users, test_investigators, test_surface, test_access, test_ws_connect, test_ws_marks, test_ws_circle, test_campaigns), and 402 passed (test_00_startup, test_rest_broadcasts, test_ws_rolls, test_circle_rest, test_deletion, test_ws_gm_view, test_ws_sheet_edits, test_ws_character).",
+    "The frontend builds (vite build to /tmp/build_death_8310). The diff adds no em dashes. All three commits end with the required two trailer lines. The worktree is clean.",
+    "Docs: FAQ :137 and :147 and the release/rejoin paragraph were edited in place. The QUIRKS line sits in the fix 6 restart block after :207. WEBSOCKET.md has the 4.4 revive row and paragraph, the apply_scar paragraph, and the section 5 character_update let_in."
+   ],
+   "items_incomplete": [
+    "88.7: a stale Let in mark stays in any browser that saw the approval itself, after the investigator was played on another device. Partly fixed: see the 'should' issue.",
+    "88.1: I did not see the card line update live in my own browser check, because my Node Lightkeeper socket replaced the browser's channel. The line after a reload (REST) was verified. The live update relies on the existing member_update path, which the implementer reports checking."
+   ],
+   "summary": "The fix8-death branch (1bc48a0..12b3908) builds every decided item. It weakens no earlier decision. Lifting a death and approving a replacement raise nothing, and End Assignment still resets the spend count. Backend tests pass (943 and 402 on two throwaway databases) and the frontend builds. In Chromium I confirmed the death's live pool lowering and log line, the server-kept Let in mark across two browsers, the Play button's accessible name, and the roster card's held mark after a reload. One 'should': PlayerRegistryPage ORs the server's let_in with the browser's persisted letInIds. So a device that had the hub open during the approval keeps showing 'Let in: press Play' after the investigator was played on another device. I reproduced this; screenshot at /tmp/death_8310/out_8310/r2_D_after.png. The remaining notes are merge-risk nits (import lines in marks.py and rolls.py, test_ws_connect.py, WEBSOCKET.md sections 1 and 4.5) plus a slightly weaker revive test. No blocking issues. Servers on 8310 and 4310 were stopped by PID, and the review databases rv_death_t1, rv_death_t2 and fix_death_8310 were dropped."
+  },
+  "repair": {
+   "choices": [
+    "88.7: wherever a registry row carries let_in, the server's value decides. The browser's stored letInIds is used only for a row without the field. An active row that the server reports as no longer let in also drops its stored id, through the store's existing forgetLetIn. gameStore.js is not edited.",
+    "#82: a player socket's revive is still refused for unaffiliated investigators too, following decision 4 as written. This is named in the commit's merge notes so Robert can see it.",
+    "test_a_scar_owed_survives_a_restart now clears the marks module's in-memory state between the two sockets, as the restart tests in test_ws_marks do. It does this inline rather than importing _restart from another group's test file.",
+    "test_ws_connect.py: the payload-less frame tests were left on refill_resources, so no further edits go into the restarts group's flip file. This is named in the merge notes."
+   ],
+   "commits": [
+    "9bf63bb Death round: the server's Let in mark wins over this browser's"
+   ],
+   "done": [
+    {
+     "item": "88.7 'should': a stale Let in mark stayed in a browser that saw the approval, after the investigator was played on another device",
+     "what": "frontend/src/components/campaignSelector/PlayerRegistryPage.jsx: letIn = !char.is_dead && ('let_in' in char ? char.let_in : letInIds.includes(char.id)). A useEffect calls forgetLetIn for any active row with let_in === false that is still in letInIds. The store is not changed.",
+     "checked": "vite build to /tmp/build_death_8320. In Chromium (/tmp/death_8320/r2.js, the reviewer's two-device case on 8320/4320): gh's request was waiting with the hub open on a laptop (C) and a phone (D), and both showed the stamp after the approval. The DB let_in went to f after Play in C. After a reload, D showed no stamp and its stored letInIds was []. The Play button name was 'Play Pontius Aganus, The Ghost Hours'. No page errors. Screenshots are in /tmp/death_8320/out_8320 (r2_C_before, r2_D_before, r2_D_after), and I looked at each one."
+    },
+    {
+     "item": "88.1 incomplete: the live update of the card line was not seen in the review",
+     "what": "No code change. The live path is the existing member_update sheet, and the earlier fix-round run checked the line going live when Cass used Death Defy. The reviewer's own check failed only because its Node Lightkeeper socket replaced the browser's channel.",
+     "checked": "Not re-run in Chromium this round. This rests on the implementer's earlier Chromium check and on test_fix8_death.test_the_roster_card_says_a_mark_is_held."
+    },
+    {
+     "item": "Nit: test_revive_character lost its check on the Lightkeeper's desk",
+     "what": "backend/tests/test_ws_marks.py: asserts that gm.sync() returns exactly [member_update with the sheet, the 'The Lightkeeper revived <name>.' line].",
+     "checked": "pytest test_ws_marks passed."
+    },
+    {
+     "item": "Nit: the restart test simulated no restart",
+     "what": "backend/tests/test_fix8_death.py: test_a_scar_owed_survives_a_restart resets marks' in-memory state (_pending_rush, _interceptable, _intercept_for, _watched, _non_combatant) with monkeypatch before reconnecting.",
+     "checked": "pytest test_fix8_death passed."
+    },
+    {
+     "item": "Nits: merge-risk hunks (marks.py and rolls.py import lines, test_ws_connect.py frame tests, WEBSOCKET.md sections 1 and 4.5) and #82's unaffiliated case",
+     "what": "Named in the merge notes in the commit body. No code change.",
+     "checked": "Commit message reviewed."
+    }
+   ],
+   "protocol": [],
+   "skipped": [
+    {
+     "item": "Nit: make test_ws_connect's payload-less frame test a player action",
+     "why": "Optional, and test_ws_connect.py is the restarts group's flip file. No player action without a payload has a visible effect (update_pen_font with null does nothing), so it would add another hunk for little gain. It is named in the merge notes instead."
+    }
+   ],
+   "tests": "On the throwaway database fix_death_t9 (dropped afterwards): test_00_startup, test_fix8_death, test_ws_marks and test_users gave 171 passed. The frontend built with vite to /tmp/build_death_8320. Chromium check on 8320/4320 with fix_death_8320: all 5 checks passed (the stamp on both devices before Play, no stamp and no stored id on D after Play in C, and the #84 Play button name). No page errors. Both servers were stopped by PID, and the fix_death_8320 database was dropped."
+  }
+ },
+ {
+  "group": "restarts",
+  "impl": {
+   "done": [
+    {
+     "item": "#78 Refused gilded keep after restart; Burn after reconnect",
+     "what": "backend/vtt/ws/endpoint.py now sends activity_history on every connect, empty included, as the last connect frame. In frontend/src/store/gameStore.js, as the socket opens the store notes the open roll the tray shows; if the history arrives and that roll was not sent back, the roll is marked settled, the keep is dropped and the tray says \"That roll was lost when the server restarted. Roll again.\" (a die still to be kept) or \"The server restarted, so this roll can no longer be burned or changed.\" A refused resolve_gilded now clears lastRollKept, settles the roll and bumps a new rollLost counter. An empty history keeps the log's lines. In pc/DiceVault.jsx, rollLost clears the die kept locally, and a gilded roll with no die kept rings no die as counting. backend/tests/support.py ws_connect now reads connect frames up to the history and sets an empty one aside (ws.empty_history), so existing frame counts are unchanged.",
+     "checked": "New test_fix8_restarts tests (they fail on the old server code). Chromium at phone, tablet and laptop: a gilded roll across an API restart, an open roll across a restart, a live reconnect that keeps Burn, and a refused keep. The base build still offered the keep after a restart."
+    },
+    {
+     "item": "#79 Non-Combatant: resend on reload, drop and explain after restart, full drive",
+     "what": "In marks.py, each point now stores {deadline, doctor_id, doctor_name, mark_type}. send_open_intercepts sends each open point again as ability_mark_offer with expires_in set to the seconds left. Picking a full drive is refused 409 \"<Drive> is already full.\"; the point is kept, and the server sends character_update and the card again. The log only says what actually came back. In the store, a socket that opens drops Non-Combatant cards along with the ally cards (sentAgainOnOpen), and a refused point shows where the card was as \"Non-Combatant not used\" (pointAnswerOut, interceptRefused). In AbilityMarkOffer.jsx, a full drive shows as \"full\", is disabled and cannot be picked (Adrenaline Rush too); a pick of a drive that has since filled no longer counts.",
+     "checked": "test_fix8_restarts (comes back on reload, gone after restart, full drive refused and point kept). The existing test_ws_marks Non-Combatant test was flipped in place. Chromium at three sizes: card back after a reload, cards gone after a restart, refusal shown."
+    },
+    {
+     "item": "#80 Server takes a roll over a waiting gilded choice",
+     "what": "In rolls.py, handle_roll refuses 409 \"Keep a die from your last roll first.\" while _pending_gilded holds the character. The roll_id replay check still runs first.",
+     "checked": "test_fix8_restarts.test_a_roll_is_refused_while_a_gilded_die_waits. test_ws_rolls.test_a_kept_die_shows_dice_once was flipped in place."
+    },
+    {
+     "item": "#81 Dealt mark beside a stored Death Defy hold",
+     "what": "In marks.py, when take_mark comes from the Lightkeeper and the player's desk is closed, any stored held mark lands first and its offer is closed (mark_offer_closed). The new mark is then dealt as before.",
+     "checked": "test_fix8_restarts.test_a_mark_dealt_to_a_closed_desk_lands_the_held_one_first: both marks land, held_mark is None, and a desk that opens gets no offer."
+    },
+    {
+     "item": "#83 Second Lightkeeper tab keeps a handled request",
+     "what": "In gameStore.js, investigator_approved now filters the approved character out of campaignRoster.pending_investigators.",
+     "checked": "Chromium at three sizes: after a REST approve the pop-up and the Requests count go. The control run on the base build kept the pop-up."
+    },
+    {
+     "item": "#85 WEBSOCKET.md says the desk never reconnects",
+     "what": "WEBSOCKET.md section 7: the two stale bullets now say they were fixed and describe the close codes, backoff, heartbeat and resend. R7 now says what a restart keeps and what it loses. Section 1 notes that activity_history always closes the connect frames.",
+     "checked": "Read against gameStore.js constants and onclose."
+    },
+    {
+     "item": "#86 Burn open stamp on the Lightkeeper's felt",
+     "what": "Store: new tableRollSettled field. A live dice_thrown sets it open unless settles is false; a replayed one follows the server's settled flag; End Assignment (assignment change in circle_update) settles it. DiceVault and DiceTray stamp a player's roll \"Burn open\" with an i (\"They can still burn a resistance and reroll. An open roll from you ends it.\") while it is below full success, not settled, and the roller has resistance left as far as her desk knows. Server: send_felt_roll adds settled: true to a replayed felt roll its player can no longer burn on.",
+     "checked": "test_fix8_restarts.test_the_felt_roll_sent_again_says_when_its_burn_is_closed. Chromium at three sizes: stamp shown, the i works, the stamp survives a reload, her own roll takes the felt. On laptop, End Assignment keeps the roll, removes the stamp, and the stamp stays gone after a reload."
+    },
+    {
+     "item": "D10 Burn preview relabelled",
+     "what": "RollModifications.jsx label is now \"Reroll: Survey, 2 dice\", with aria-label \"..., what it throws\".",
+     "checked": "Chromium at three sizes read \"Reroll: Control, 2 dice\"."
+    },
+    {
+     "item": "#87 Touch targets (RollModifications.jsx, AbilityMarkOffer.jsx)",
+     "what": "Use, Skip, the drive picker and the ally selects in RollModifications get [@media(pointer:coarse)] min-h and min-w of 44px. The AbilityMarkOffer drive picker is min-h-[40px] on a mouse and 44px on touch.",
+     "checked": "Measured in Chromium: 44px on phone and tablet; unchanged on laptop (22px post-roll, 40px offer)."
+    },
+    {
+     "item": "88.5 Keep-a-die dice shimmy on touch",
+     "what": "DiceTray.jsx: added [@media(hover:none)]:animate-none and motion-reduce:animate-none to the dice waiting to be kept.",
+     "checked": "Computed animation-name: liftShimmy on laptop, none on phone and tablet."
+    },
+    {
+     "item": "88.13 Ally cards name the mark",
+     "what": "AbilityMarkOffer.jsx: Behind Me, Premonitions and Non-Combatant now read e.g. \"Take Bram Holt's Body mark instead\", \"Soak Bram Holt's Body mark\", \"Bram Holt took a Body mark.\"",
+     "checked": "Chromium at three sizes."
+    },
+    {
+     "item": "88.u8 Lightkeeper's Secret armed state made loud",
+     "what": "GmDiceControls.jsx: while Secret is ticked, the label sits in an oxblood-lit ring and the Roll button turns ink with a dashed oxblood-lit border, a mask icon and \"Roll N dice in secret\".",
+     "checked": "Chromium screenshots at three sizes."
+    },
+    {
+     "item": "88.u14 Adrenaline Rush picker: full drive names and Pick a drive hint",
+     "what": "The picker shows full drive names, has aria-pressed on the chosen drive and aria-label \"<Drive>, full\" on a full one. The disabled Use reads \"Pick a drive\" (\"Every drive is full\" when none can be picked).",
+     "checked": "Chromium at three sizes."
+    },
+    {
+     "item": "88.u17 Keep slip equal failures wording",
+     "what": "game/outcomes.js keepChoices: when both dice give the same outcome, the plain one adds \"no drive back\". Used by the slip and the phone bar.",
+     "checked": "Seen in Chromium: \"Keep the gilded 5: Mixed success, 1 Nerve back\" / \"Keep the 4: Mixed success, no drive back\". The base build showed two plain \"Failure\" lines."
+    },
+    {
+     "item": "88.u26 Lightkeeper log wording nits",
+     "what": "rolls.py log line is now \"The Lightkeeper rolled ...\". In DiceTray, the secret slip line is one sr-only sentence with the visible parts aria-hidden. Three test_ws_rolls lines were flipped.",
+     "checked": "pytest. In Chromium the aria snapshot reads paragraph \"Secret: only you saw this\" and the log reads \"(Secret) The Lightkeeper rolled ...\"."
+    },
+    {
+     "item": "88.u11 store half: spendRefusal",
+     "what": "gameStore.js: an action_rejected for spend_resource sets spendRefusal {detail, at} (new state field), for group D to show.",
+     "checked": "vite build (no server or UI change in this group to drive it)."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Adrenaline Rush card after a restart (same silent-refusal shape as #79)",
+     "why": "Not in this group's items. Its card still stays after a restart and its refusal is not shown. Only the full-drive picker covers it."
+    },
+    {
+     "item": "Browser check of #81 and of the full-drive server refusal",
+     "why": "Both are server behaviour covered by backend tests. The picker never offers a full drive, so the refusal cannot be reached from the UI."
+    }
+   ],
+   "choices": [
+    "#78: two short lines, one per case: \"That roll was lost when the server restarted. Roll again.\" for a die still to be kept, and \"The server restarted, so this roll can no longer be burned or changed.\" for a scored roll. The dice stay; Roll settled shows. Only player desks check; the Lightkeeper's own rolls have no burn.",
+    "#78: changed backend/tests/support.py (owned by the death group, but only its field lists) in the WS helper only: ws_connect reads the connect frames up to the history and sets an empty one aside (ws.empty_history; other frames are kept in ws.queued). This avoids flipping hundreds of frame-count assertions; all 1167 socket tests pass.",
+    "#79: after a full-drive refusal the server sends character_update and the point's card again, so the kept point is not stranded with no card.",
+    "#86: the stamp also checks the roller's resistance from memberSheets or roster cards when known. The server adds settled: true to a replayed felt roll so a reload shows the right stamp. The i text is \"They can still burn a resistance and reroll. An open roll from you ends it.\"",
+    "88.u14: full drive names are visible, not only in aria-labels; they fit the card. \"Pick a drive\" is the disabled Use's own text, not a separate line beside it.",
+    "88.u17: the change is in game/outcomes.js (no group owns it), since keepChoices builds the slip and phone bar labels.",
+    "88.u8: only the loud armed state; Secret is not reset after a roll (triage: a behaviour call).",
+    "#87: the ally pickers (selects) in RollModifications got 44px on touch too, same file and same issue.",
+    "Docs: QUIRKS.md gets a \"Fix round 8, restarts\" block inserted after the fix round 6 rolls block (not at file end). FAQ.md:84 (\"(Secret) The Lightkeeper rolled\") was edited in place because it quotes the changed line. The FAQ :18 row's existing em dash became a colon. The Lightkeeper log line keeps its existing em dash, which tests pin as protocol text."
+   ],
+   "protocol": [
+    "activity_history: now sent on every connect, entries possibly empty, always the last connect frame (endpoint.py)",
+    "ability_mark_offer (Non-Combatant): sent again on connect for each open point, with expires_in = seconds left; also sent again after a full-drive refusal",
+    "resolve_ability_mark Non-Combatant: new refusal action_rejected 409 \"<Drive> is already full.\" (point kept, character_update and the card follow)",
+    "roll: new refusal action_rejected 409 \"Keep a die from your last roll first.\" while a gilded choice waits",
+    "dice_thrown replayed to the Lightkeeper on connect: new optional field settled: true when its player can no longer burn on it",
+    "take_mark from the Lightkeeper to a closed desk: a stored held mark lands first; mark_offer_closed is sent to the character channel",
+    "activity_log text: \"The Lightkeeper rolled ...\" (was \"Lightkeeper rolled ...\")",
+    "Store (no wire change): new fields tableRollSettled, rollLost, spendRefusal {detail, at}",
+    "No DB tables or columns changed; no new message types"
+   ],
+   "commits": [
+    "68cb614 Restarts: history ends every connect, Non-Combatant re-sent, no roll over a gilded choice",
+    "23d08dd Desk side of the restart fixes, Burn open on the felt, offers and dice details",
+    "36c61e3 Docs for the restart fixes, the reconnecting desk and the burn stamp",
+    "fc1541c A lost gilded roll rings no die as counting"
+   ],
+   "tests": "Final run on fix8-restarts: tests/test_fix8_restarts.py (8 new), all tests/test_ws_*.py, test_campaigns.py, test_rest_broadcasts.py, test_access.py and test_surface.py: 1167 passed. The new tests were also run against the old server code (support.py change kept): 6 of 7 then present failed as expected; the restart-behaviour check passes either way. vite build is clean. The Chromium scripts are in /tmp/restarts_8330: r78.js, rlk.js, roffer.js, rpost.js and rend.js ran at phone, tablet and laptop (rend.js laptop only), all PASS, no page errors. The base build reproduced #78, #83, #86, 88.13, 88.u14, 88.u17 and the 30px picker (#87). Servers are stopped and the databases dropped."
+  },
+  "rev": {
+   "summary": "I reviewed fix8-restarts (1bc48a0..fc1541c, 4 commits) against decisions8.md, the earlier decisions and triage8.md. Every item the implementer claims is in the diff, and the branch stays inside the restarts group's files. The one exception is backend/tests/support.py, where only the WS helper changed, in a region away from the death group's field lists. I ran tests/test_fix8_restarts.py, test_ws_marks.py, test_ws_rolls.py, test_ws_connect.py and test_surface.py: 427 passed. vite build is clean. In Chromium at phone, tablet and laptop: #78 passes (a gilded roll across a restart, an open roll across a restart, a live reconnect keeps Burn, a refused keep), and so do #79 and 88.13, 88.u14 and #87 on the offer card, D10 with #87 and 88.5 on tablet, #83, 88.u8 and 88.u26 on phone, and End Assignment taking the Burn open stamp on laptop. I found no page errors. No em dashes were added and the commit trailers are correct. Nothing found is blocking. One should: after a server restart, the Lightkeeper's felt keeps stamping a player's roll \"Burn open\", though the server now refuses that burn (checked in Chromium). The other points are nits. My servers are stopped, the databases are dropped, and the worktree is unchanged.",
+   "issues": [
+    {
+     "level": "should",
+     "where": "frontend/src/store/gameStore.js:1312 (activity_history) and :1126-1135 (dice_thrown)",
+     "problem": "#86 after a server restart. The Lightkeeper's desk reconnects by itself and keeps its tableRoll, with tableRollSettled still false. After a restart _felt_roll and _last_roll are empty, so no replayed dice_thrown comes back. Her felt keeps stamping the player's slip \"Burn open\" while the server refuses the burn (\"Burn a resistance after a roll of that action.\"). I reproduced this in Chromium on laptop with an API restart and a live reconnect (screenshot rv_laptop_felt_after_restart.png). This is the same restart hole #78 closes on the player's desk; here it shows on the Lightkeeper's desk, which is what decision 6 is about.",
+     "fix": "Use the same end-of-connect signal on the Lightkeeper's desk. As her socket opens, note that a player's felt roll is shown and still open. If activity_history arrives without a replayed dice_thrown for it, set tableRollSettled true. The dice stay on the felt, as decisions_run4 asks. Add one QUIRKS/WEBSOCKET clause beside the #78 text."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/store/gameStore.js:1131-1135, backend/vtt/ws/handlers/rolls.py:143-147",
+     "problem": "Two cases where the Burn open stamp goes wrong. (1) The roller makes a secret roll after the open one. No dice_thrown follows, so the felt keeps the stamp, but any burn now answers the secret roll. The server's settled test only compares the action, so a reload keeps the stamp too when the action is the same (seen in Chromium). (2) The Lightkeeper's own secret roll takes the felt and removes the stamp, though a secret roll settles nothing, so the player's burn is still open. Meanwhile the i says only that \"An open roll from you ends it.\"",
+     "fix": "Optional. Have the server mark the felt roll settled when the roller's _last_roll is secret, and tell the Lightkeeper's desk so. Or note both cases in QUIRKS.md as known."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/store/gameStore.js:1249-1253",
+     "problem": "The spendRefusal block was inserted between the comment \"An earn-back refused (...): the ask says why\" and its gm_earn_back if, so that comment now sits above the spend_resource code.",
+     "fix": "Move the spend_resource block (with its comment) above the earn-back comment."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/dice/GmDiceControls.jsx:34,47",
+     "problem": "The armed Roll button changes from a 1px solid border to a 2px dashed one, and the Secret label now always carries px-1.5 py-1. Ticking Secret moves the rail by a pixel or two. The Roll button is also still about 36px tall on touch, but it is not one of the #87 files.",
+     "fix": "Optional: keep the same border width in both states (for example 2px in both), and give the Roll button the coarse-pointer 44px class if group E does not cover it."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/ws/handlers/marks.py:731-740 with frontend/src/store/gameStore.js:1214-1219",
+     "problem": "After a full-drive refusal, the store first shows \"Non-Combatant not used: <Drive> is already full.\". The card the server sends again then clears that note at once (AbilityMarkOffer clears interceptRefused on a new card), so the refusal text flashes and goes. The card itself shows the drive as full, so the player still learns why. Only a race reaches this, since the picker never offers a full drive.",
+     "fix": "Optional: leave it, or keep the refusal line on the card that comes back."
+    }
+   ],
+   "items_ok": [
+    "#78: endpoint.py always sends activity_history as the last connect frame. The store's rollAskedBack settles and explains a roll the server did not send back, and a refused resolve_gilded drops the kept die and its outcome. Checked in Chromium on phone: gilded roll and open roll across a restart, a live reconnect that keeps Burn, a refused keep. A scored gilded roll keeps lastRollKept after a restart. An empty history keeps the log.",
+    "#79: points are stored as {deadline, doctor_id, doctor_name, mark_type} and sent again on connect with the seconds left. A full drive is refused 409, the point is kept, and character_update and the card follow. The store drops Non-Combatant cards on open and shows a refusal where the card was. The UI shows a full drive as full and disabled. Seen in Chromium on phone: card back after a reload, gone after a restart, refusal shown, 44px buttons.",
+    "#80: handle_roll refuses while _pending_gilded holds the character, after the roll_id replay check. No stuck state found: resolve_gilded stays reachable, including after End Assignment and for the dead, and send_held_roll gives the choice back on connect.",
+    "#81: the take_mark branch for a closed desk takes the held mark with commit, sends mark_offer_closed, lands it, then deals the new mark. This is the same pattern as mark_or_offer and matches decision 5. The test confirms held_mark is None and no offer comes back.",
+    "#83: investigator_approved filters pending_investigators. Seen in Chromium on phone: the pop-up goes after an approve elsewhere.",
+    "#85: WEBSOCKET.md section 7 and R7 match RECONNECT_DELAYS_MS [1,2,4,8,15 s] and the heartbeat at 10 s plus 15 s.",
+    "#86: the stamp appears for an open roll below full success, its i works, it survives a reload, and End Assignment takes the stamp but keeps the roll (decisions_run4). Checked in Chromium on phone and laptop.",
+    "D10: \"Reroll: Control, 2 dice\", with aria-label \"..., what it throws\" (tablet).",
+    "#87: Use, Skip, the drive picker and the ally selects are 44px on touch in RollModifications. The AbilityMarkOffer picker is 44px on phone.",
+    "88.5: the dice waiting to be kept do not animate on touch (computed animation none on tablet).",
+    "88.13: Behind Me, Premonitions and Non-Combatant name the mark (phone).",
+    "88.u8: the armed Secret state is loud. The Roll button reads \"Roll 1 die in secret\" with the mask icon.",
+    "88.u14: full drive names, aria-pressed, \"<Drive>, full\" aria-labels, and \"Pick a drive\" / \"Every drive is full\" on the disabled Use.",
+    "88.u17: keepChoices adds \"no drive back\" to the plain choice when both choices give the same outcome. Its callers (DiceVault, DiceTray, RollResultBar) read only label and back.",
+    "88.u26: the log reads \"The Lightkeeper rolled\". The secret slip line reads as one paragraph to a screen reader. The pinned tests were flipped in place.",
+    "88.u11 store half: action_rejected for spend_resource sets spendRefusal {detail, at}.",
+    "Tests: test_fix8_restarts.py is new, the test_ws_marks and test_ws_rolls tests were flipped in place, and none were deleted. The support.py helper keeps the existing frame counts. 427 passed. vite build is clean. No schema change. test_surface.py needs no change because there are no new message types. No em dashes were added (the existing em dash in the Lightkeeper's log line is pinned protocol text), and the commit trailers are correct."
+   ],
+   "items_incomplete": [
+    "#86 is incomplete on the server-restart path: the Lightkeeper's felt keeps \"Burn open\" after a restart (the should issue above).",
+    "Not covered and out of scope, as the implementer said: an Adrenaline Rush card still stays up after a restart and its refusal is silent."
+   ]
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Review should: #86 felt keeps \"Burn open\" after a server restart (items_incomplete)",
+     "what": "frontend/src/store/gameStore.js: new module variable feltAskedBack. As the Lightkeeper's socket opens, it holds the tableRoll object if that is a player's roll and not tableRollSettled. Any dice_thrown clears it. If activity_history, the last connect frame, arrives while the felt still shows that same roll object, tableRollSettled is set true. The dice stay on the felt; only the stamp goes, as #78 does on the player's desk. Docs: WEBSOCKET.md section 1 step 8 and the activity_history table row, QUIRKS.md fix round 8 #86 bullet, FAQ.md:78 (\"End Assignment and a server restart take the stamp, not the roll.\").",
+     "checked": "Chromium (/tmp/restarts_8350/rfelt.js) at laptop, tablet and phone, all PASS with no page errors. An open player roll is stamped; after an API restart (stopped and started by PID, same DB) the slip keeps Cass Reed's roll with no stamp; a live reconnect with no restart keeps the stamp. Screenshots looked at."
+    },
+    {
+     "item": "Review nit: secret roll after the open one keeps the stamp on reload",
+     "what": "backend/vtt/ws/handlers/rolls.py send_felt_roll: a replayed felt roll also carries settled: true when the player's _last_roll is secret. New test test_fix8_restarts.test_a_secret_roll_after_the_felt_roll_closes_its_burn_on_a_reload. The two live cases are noted as known in QUIRKS.md: a live secret roll does not reach her desk, and her own secret roll removes the stamp. WEBSOCKET.md step 7 names the secret case.",
+     "checked": "pytest; Chromium on 3 sizes: a reload after open roll plus secret roll of the same action shows the roll with no stamp."
+    },
+    {
+     "item": "Review nit: spendRefusal block under the earn-back comment",
+     "what": "gameStore.js: the spend_resource block with its own comment now sits above the earn-back comment and its if.",
+     "checked": "vite build"
+    },
+    {
+     "item": "Review nit: GmDiceControls Roll button border and touch height",
+     "what": "GmDiceControls.jsx: Roll button is border-2 in both states (only style and colour change when Secret is armed) and gets [@media(pointer:coarse)]:min-h-[44px].",
+     "checked": "Chromium: border 2px and height the same in both states; 40px on laptop, 44px on tablet and phone."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Review nit: Non-Combatant full-drive refusal text flashes and goes when the card comes back",
+     "why": "Optional, and only a race reaches it (the picker never offers a full drive). The card that comes back shows the drive as full, so the player still learns why. Leaving it avoids extra card state."
+    },
+    {
+     "item": "Review nit: live update of the felt stamp on a player's secret roll, and her own secret roll removing the stamp",
+     "why": "Fixing these live would need a new frame to the Lightkeeper or new felt logic. Not cheap. The reload path is fixed on the server, and both live cases are written in QUIRKS.md as known."
+    },
+    {
+     "item": "Adrenaline Rush card after a restart (reviewer: out of scope)",
+     "why": "Not in this group's items, as the implementer and reviewer both said."
+    }
+   ],
+   "choices": [
+    "The felt check uses the identity of the tableRoll object as the socket opened. Any live or replayed dice_thrown, or an outcome change, between open and history means the server spoke for the felt, so it is left alone (this errs toward keeping the stamp).",
+    "Only the stamp goes after a restart. The roll stays on the felt (decisions_run4), and the Lightkeeper's desk shows no alert line, since the stamp is her only burn cue.",
+    "The 44px Roll button applies on any coarse pointer (phone included), not only md, because it is the desk's main button. The +/- steppers' existing md-only pattern was left as it was.",
+    "FAQ.md:78 change is in place inside the restarts group's paragraph: \"End Assignment and a server restart take the stamp, not the roll.\""
+   ],
+   "protocol": [
+    "dice_thrown replayed to the Lightkeeper on connect: settled: true now also when the player's last roll since is secret (send_felt_roll in rolls.py)",
+    "Store only (no wire change): the Lightkeeper's felt sets tableRollSettled when activity_history ends the connect without a dice_thrown for the player's roll it showed"
+   ],
+   "commits": [
+    "491fd8f Felt drops Burn open after a restart; a secret roll closes it on reload"
+   ],
+   "tests": "backend tests/test_fix8_restarts.py (9, one new), tests/test_ws_rolls.py and tests/test_ws_connect.py: 264 passed (throwaway DB, dropped). vite build clean. Chromium /tmp/restarts_8350/rfelt.js at laptop, tablet and phone: all PASS with no page errors (restart takes the stamp and keeps the roll; a live reconnect keeps the stamp; a reload after a secret roll has no stamp; the Roll button has the same border in both states and is 44px on touch). Screenshots are in /tmp/restarts_8350/out/. Servers are stopped by PID and fix_restarts_8350 is dropped."
+  }
+ },
+ {
+  "group": "charter",
+  "impl": {
+   "done": [
+    {
+     "item": "#74 Charter read-only until the seal; players' chapter house wins",
+     "what": "backend/vtt/routers/circles.py finalize: the players' trimmed chapter_house answer always wins; the Lightkeeper's text stays only when they wrote none. backend/vtt/ws/handlers/gm.py handle_update_circle: before the seal, a payload naming name, chapter_house_location, circle_ability or insignia is refused whole, 409 \"Decided in the formation papers until the seal.\" (CHARTER_FIELDS). frontend gm/CirclePage.jsx: before the seal the charter is read-only. It shows the name the seal would take (nameOnTheSeal), the players' chapter house, and \"Chosen by vote\" for the ability, with BlankEntry where nothing is set yet. The paper head has a \"Not sealed yet\" InfoTerm whose text is \"Decided in the formation papers until the seal.\" After the seal it can be edited as before. Pinned test flipped in place: test_circle_rest.test_finalize_keeps_an_existing_chapter_house. In test_ws_circle, test_update_circle_as_gm and test_spending_and_renaming_and_long_names_are_logged now seal the circle first.",
+     "checked": "test_fix8_circle (refusal, house wins); Chromium on the Lightkeeper's desk at 390x844, 820x1180 and 1366x768 before the seal (no Edit buttons or ability select, the i slip shown), the server refusal, finalize-roster keeping 'The old mill on Tanner Street' over the Lightkeeper's 'tower', and the editable charter after the seal (phone and laptop); no page errors"
+    },
+    {
+     "item": "#75 Edit sheet log shows the part of a text field that changed",
+     "what": "backend/vtt/sheet_edits.py: new _changed_part(old, new), used by text_change. Values that both fit in 40 characters are shown whole as before. Otherwise only the words that differ are shown, with one word of context on each side and \"...\" where words are left out, each side clipped to 40 characters.",
+     "checked": "test_fix8_circle (a change late in the field, one in the middle, short values, and clipping); the Lightkeeper's log in Chromium (phone, laptop) reads 'Ada Lark: style ...battered hat to ...battered hat, and a lantern.'"
+    },
+    {
+     "item": "#76 Dead report: is_dead re-check in circle.py",
+     "what": "backend/vtt/ws/handlers/circle.py handle_submit_assignment_report: the reporter is re-read under the circle's lock and refused if dead, 409 \"<name> is dead: the sheet is a record.\". A report filed before the death is kept.",
+     "checked": "test_fix8_circle.test_a_dead_investigator_files_no_report (passes on this branch without group A's DEAD_REFUSED entry, so the re-check alone is tested)"
+    },
+    {
+     "item": "88.3 Add N Illumination confirm only while reports are unfiled",
+     "what": "gm/CirclePage.jsx: while notFiled is non-empty, Add N Illumination is a ConfirmAction (\"Press again to add 3 Illumination without their keys.\" / Add / Cancel). With every report filed it stays one press. FAQ.md :248 updated.",
+     "checked": "Chromium at all three sizes: armed hint and Add button shown, Cancel restores the button. On laptop, with every report filed, one press gives 'Added N Illumination'"
+    },
+    {
+     "item": "88.10 Advance log line names the refill",
+     "what": "gm.py handle_gm_advance_circle: the line gains \" Its Stitch, Refresh and Train are back to N each.\" where N comes from resource_pool. The two advance-line tests in test_ws_circle are flipped in place.",
+     "checked": "test_fix8_circle.test_the_advance_line_names_the_refill, test_ws_circle advance tests; in Chromium the advance pressed on the laptop Circle page logs '...gained Nobody Left Behind! Its Stitch, Refresh and Train are back to 3 each.'"
+    },
+    {
+     "item": "88.12 +1 Illumination stops at 12, server clamps",
+     "what": "gm.py handle_update_circle: a raise ends at max(old, 12), so a carry-over is never cut and a lowering still goes through; no log line when nothing changed. CirclePage.jsx: +1 is disabled at 12 or more. FAQ.md :240.",
+     "checked": "test_fix8_circle.test_a_raise_stops_at_the_full_track_and_a_carry_over_is_kept; Chromium at all three sizes: +1 disabled at 12"
+    },
+    {
+     "item": "88.u11 Spending closes at End Assignment and reopens at the next dispatch; refusal and i text",
+     "what": "gm.py: End Assignment closes spending that was open, sets backstory_answers.spending_paused and logs \"Circle spending is closed until the next assignment's dispatch.\" New reopen_spending(): when gm_update_circle or update_circle leaves a dispatch written and the flag is set, spending opens again, the flag is dropped, and \"Spending is open again: up to two each.\" is logged. These handlers now lock the row. The Lightkeeper's toggle drops the flag. circle.py handle_spend_resource: when closed, refuses 409 \"Spending is closed until the next assignment starts.\" (flag set) or \"Spending is locked until the Lightkeeper opens it.\". Its other rejections stay silent. SPENDING_PAUSED is defined in circle.py. SceneManager.jsx ENDS gains \"Circle spending closes until the next assignment's dispatch.\" test_ws_character.test_spend_rejections_are_silent flipped in place. FAQ :295, QUIRKS :191 and WEBSOCKET 4.2/4.6 updated.",
+     "checked": "test_fix8_circle (two spending tests); Chromium: End's i slip at all three sizes. On laptop: End, then the log line, the flag in the DB, a player's spend refused with the closed wording, the Circle page reading 'Spending locked', then a dispatch reopening it with the log line and 'Spending open'"
+    },
+    {
+     "item": "88.u12 Amended mark on the Lightkeeper's report card",
+     "what": "circle.py: an amended report keeps its first submitted_at and adds amended_at (UTC ISO), both stored and in the frame. CirclePage.jsx ReportFlipCard front shows \"Amended <time>\" (a date as well if it was not today), and the card's accessible name includes it. test_ws_circle._undated now also checks and removes amended_at.",
+     "checked": "test_fix8_circle amendment test; Chromium card front at all three sizes ('AMENDED 05:57 PM', name 'Ada Lark: read the report, amended 05:57 PM, line filed'); a report filed once shows no mark"
+    },
+    {
+     "item": "88.u13 Amendment with no change refused",
+     "what": "circle.py: an amendment whose responses and trimmed note equal the filed ones is refused 409 \"Nothing changed.\" and nothing is logged.",
+     "checked": "test_fix8_circle; replayed over a socket against the preview server (trailing spaces and newline on the line) and refused"
+    },
+    {
+     "item": "88.u20 Illumination heading name on CirclePage.jsx",
+     "what": "The Illumination h3 has aria-label \"Illumination n of 12\" (plus \", k carried over\" when above 12); the InfoTerm keeps its own name 'About Illumination'.",
+     "checked": "Chromium at all three sizes: getByRole('heading') named 'Illumination 0 of 12' and later 'Illumination 12 of 12'"
+    },
+    {
+     "item": "88.i1 Line filed mark on the report card front",
+     "what": "CirclePage.jsx ReportFlipCard front shows \"Line filed\" when report.note is set (also in the card's name).",
+     "checked": "Chromium at all three sizes"
+    }
+   ],
+   "skipped": [
+    {
+     "item": "#76 DEAD_REFUSED entry in access.py and the CircleView report form",
+     "why": "Owned by groups A (access.py) and D (CircleView.jsx). This group did only the circle.py re-check and the WEBSOCKET 4.6 sentence that covers both."
+    },
+    {
+     "item": "Player-side display of the spend refusal and the CircleView spending i (88.u11)",
+     "why": "Group D shows it from group B's spendRefusal store field. The server wording they should use is exactly \"Spending is closed until the next assignment starts.\" / \"Spending is locked until the Lightkeeper opens it.\" and the i text is \"Circle spending closes until the next assignment's dispatch.\""
+    },
+    {
+     "item": "88.u20 on CircleView.jsx",
+     "why": "Group D's file"
+    },
+    {
+     "item": "game/circleResources.js refillRule ('whenever the Lightkeeper opens spending; the count starts again when the assignment ends')",
+     "why": "Still true and owned by no group. Left unchanged to keep the merge clean; it could mention the close at End in a later round"
+    }
+   ],
+   "choices": [
+    "#74: before the seal the name shown is the one the papers would seal (vote leader, else most suggested), or a dotted 'Not named yet' blank. The house is the players' answer or a 'Not written yet' blank. The ability reads 'Chosen by vote'. The 'i' is an InfoTerm labelled 'Not sealed yet' on the paper's head row.",
+    "#74: a payload naming any charter field is refused whole, even if it also carries other fields. The insignia keeps access.py's existing 409 wording, which fires first.",
+    "#75: context is one word on each side of the changed words, and both sides keep the 40-character clip; short values (both 40 characters or fewer) are shown whole as before. Applied to every text field (name, pronouns, role, specialty, style, catalyst, question); lists (abilities, gear, scars) are unchanged.",
+    "88.10 wording: \"Its Stitch, Refresh and Train are back to N each.\" names the three, where the triage had \"Its resources are back to N each.\"",
+    "88.u11: End Assignment writes its own log line when it closes spending (\"Circle spending is closed until the next assignment's dispatch.\"), and the End log line itself is unchanged. Reopening happens on any gm_update_circle or update_circle that leaves location, atmosphere or dispatch text written while the flag is set (the first dispatch after End). If End found spending already locked, nothing is flagged and it stays locked.",
+    "88.u12: an amended report keeps its original submitted_at (the card's 'Report filed' date stamp), and amended_at carries the amendment time. Before, submitted_at was overwritten on amend. The card prints the time only if the amendment was today, otherwise day, month and time.",
+    "88.3 armed button reads 'Add' (one verb) with the triage's sentence.",
+    "Docs: besides the listed places, sentences were added in place at FAQ.md :169 (#75), :211 (#74), :240 (88.12) and :252 (the report paragraph), lines no other group owns."
+   ],
+   "protocol": [
+    "update_circle: new refusal action_rejected 409 \"Decided in the formation papers until the seal.\" for name, chapter_house_location or circle_ability before the seal (insignia keeps its existing 409). A raise of illumination is clamped to max(old, 12), with no refusal.",
+    "spend_resource: new refusal action_rejected 409 \"Spending is closed until the next assignment starts.\" (closed by End Assignment) or \"Spending is locked until the Lightkeeper opens it.\" (it was silent). Other rejections stay silent.",
+    "submit_assignment_report: new refusals 409 \"<name> is dead: the sheet is a record.\" (re-check under the lock) and 409 \"Nothing changed.\". New optional field amended_at (UTC ISO) on an amended report, stored and in assignment_report_submitted. submitted_at now keeps the first filing time.",
+    "gm_end_assignment: closes open spending (resources_editable false), sets backstory_answers.spending_paused = true (JSON key in an existing column, no migration; visible in circle_update), and adds a log line.",
+    "gm_update_circle / update_circle: a dispatch written while spending_paused is set reopens spending, drops the flag and logs \"Spending is open again: up to two each.\". gm_update_circle and gm_toggle_resource_edit now lock the circle row. gm_toggle_resource_edit drops spending_paused.",
+    "gm_advance_circle: its activity_log line gains \" Its Stitch, Refresh and Train are back to N each.\"",
+    "finalize-roster (REST): the players' trimmed chapter_house answer overwrites chapter_house_location when non-empty. Response shape unchanged.",
+    "No new message types, DB columns or API shapes"
+   ],
+   "commits": [
+    "356bb41 Circle rules: charter until the seal, reports, spending, Illumination",
+    "b6cb818 Lightkeeper's Circle page: charter until the seal, report marks, Add confirm",
+    "b58294e Docs for the charter group's fix round 8 changes"
+   ],
+   "tests": "New file backend/tests/test_fix8_circle.py: 10 tests, all pass. Flipped in place: test_circle_rest.test_finalize_keeps_an_existing_chapter_house; in test_ws_circle, test_gm_advance_circle, test_gm_advance_circle_first_ability_and_unnamed_circle, test_update_circle_as_gm, test_spending_and_renaming_and_long_names_are_logged and the _undated helper; test_ws_character.test_spend_rejections_are_silent. Runs on a throwaway Postgres database: test_ws_circle + test_ws_character + test_fix8_circle gave 163 passed. The baseline run on the unflipped files (test_access, test_deletion, test_rest_broadcasts, test_ws_connect, test_ws_marks, test_ws_rolls, test_circle_rest, test_json_strings, test_surface, test_ws_sheet_edits, test_ws_gm_view) gave 979 passed. A final run of test_fix8_circle + test_circle_rest + test_ws_sheet_edits gave 73 passed. Frontend: vite build OK (/tmp/build_charter, /tmp/build_charter_8360). Browser checks in Chromium against backend 8360 and preview 4360 (scripts in /tmp/charter_8360/) all passed at 390x844, 820x1180 and 1366x768 with no page errors; screenshots were viewed. Servers were stopped by PID and both databases dropped."
+  },
+  "rev": {
+   "summary": "I reviewed the fix8-charter branch (3 commits on top of 1bc48a0) against decisions8.md and the earlier decision files. The server work is solid and well tested. I ran test_fix8_circle, test_circle_rest, test_ws_sheet_edits, test_ws_circle, test_ws_character and test_surface: 281 passed. I also ran test_access, test_ws_gm_view, test_rest_broadcasts, test_json_strings and test_deletion: 497 passed. vite build is OK. In Chromium (backend 8370, preview 4370) these all worked with no page errors: the read-only charter before the seal (phone and laptop), End Assignment's i slip at all three sizes, the spend refused after End, the dispatch reopening spending, and the advance line. No em dashes or model names were added, and the commit trailers are right.\n\nThere are three real problems:\n(1) The Amended mark (88.u12) does not appear live. The store's assignment_report_submitted handler drops amended_at, so the mark shows only after a reload. The implementer's browser check filed and amended before opening the Lightkeeper's desk, so it never tested the live path, and the report does not hand this off to the restarts group.\n(2) A player can write backstory_answers.spending_paused through circle_backstory_update. That lets a player force spending open at the next dispatch, or stop it reopening. I reproduced this over a socket.\n(3) The Add N confirm (88.3) is skipped when reports were never opened and none is filed, though every report is then unfiled.\n\nSmaller gaps: the refillRule spending wording on both Circle pages still says spending opens only when the Lightkeeper opens it, which goes against decisions_fix4 2's one-wording rule. There are also a few nits.\n\nI stopped my servers by PID and dropped both databases (fix_charter_8370, fix_charter_rev). The worktree is clean.",
+   "issues": [
+    {
+     "level": "blocking",
+     "where": "frontend/src/store/gameStore.js:1469",
+     "problem": "88.u12 does not work live. The assignment_report_submitted handler destructures only {character_id, character_name, responses, submitted_at, note} and stores that, so amended_at from the frame is dropped. Checked in Chromium on the laptop with the Lightkeeper's Circle page open: Ada files, then amends with a line. The card front then reads 'REPORT FILED 15 OCT 2026 / LINE FILED' with no Amended mark, and its name is 'Ada Lark: read the report, line filed'. Only after a reload does it read 'amended 06:20 PM' (screenshot /tmp/charter_8370/out/live_amend.png). The implementer's check (check88.js) amended before opening the desk, so it only tested the connect state. The report claims 88.u12 done and names no hand-off.",
+     "fix": "gameStore.js belongs to the restarts group, so hand it off: the store should keep amended_at (add it to the destructure and to the stored report as ...(amended_at ? { amended_at } : {}), or spread the payload). Say this in the PR and in the charter report's skipped/hand-off list so the merge does not ship the item half done. Re-check live after the merge."
+    },
+    {
+     "level": "should",
+     "where": "backend/vtt/ws/access.py:271",
+     "problem": "The new flag backstory_answers.spending_paused is not in RESERVED_ANSWERS. Any member can send circle_backstory_update with question_key 'spending_paused' and set it, or clear it. Reproduced: with spending locked by the Lightkeeper, a player sent {question_key:'spending_paused', answer:'yes'}, which was stored with no refusal. The Lightkeeper's next gm_update_circle dispatch then set resources_editable true and logged 'Spending is open again: up to two each.' That overrides the Lightkeeper's lock. A player can also blank the flag to stop the reopen, or change which refusal wording a locked spend gets.",
+     "fix": "Add SPENDING_PAUSED ('spending_paused') to RESERVED_ANSWERS in access.py, a one-line change in group A's file that this item needs, or hand it to group A explicitly. Add a test in test_fix8_circle that a player's circle_backstory_update naming it is refused."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/components/gm/CirclePage.jsx:605",
+     "problem": "Decision 7 says Add N asks for a confirm 'only while some reports are unfiled'. The confirm is keyed on notFiled, but notFiled is '' until reportsDue (reports opened, or one filed). If the Lightkeeper ticks the circle questions and presses Add N before opening reports, every report is unfiled, yet Add is one press. The keys are then lost for good, since the tally goes on the track only once.",
+     "fix": "Base the confirm on unfiledNames(investigators, reports).length > 0, independent of reportsDue, and keep the visible 'Not filed:' line gated as now. Or arm it whenever unfiled names exist and say so in the hint. Update the FAQ sentence if the wording changes."
+    },
+    {
+     "level": "should",
+     "where": "frontend/src/game/circleResources.js:27",
+     "problem": "refillRule still says 'whenever the Lightkeeper opens spending; the count starts again when the assignment ends'. CirclePage.jsx:732 prints it under the resources, and CircleView puts it behind its i. Under decision 9, spending now also closes at End Assignment and reopens on its own at the next dispatch. decisions_fix4 2 requires every place that describes when spending is open to use one wording. The implementer left this file unchanged on purpose because no group owns it.",
+     "fix": "Change refillRule's first sentence in place, for example: 'Each player may spend up to two each assignment while spending is open: the Lightkeeper opens it, End Assignment closes it, and the next assignment's dispatch opens it again.' No group owns the file, so a small edit is merge-safe. Otherwise list it as an open follow-up in the PR."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/CirclePage.jsx:674",
+     "problem": "After End Assignment, the Lightkeeper's resources card reads 'Spending locked' and offers 'Allow spending'. Nothing on the page says the next dispatch will open spending again, so she may open it by hand without need, which also drops the flag.",
+     "fix": "While circle.backstory_answers.spending_paused is set, label it 'Closed until the dispatch', or put an i with \"Circle spending closes until the next assignment's dispatch.\""
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/CirclePage.jsx:362",
+     "problem": "Before the seal the chapter house shows only the players' answer. On legacy data where the Lightkeeper had already written one and the players wrote none, the page shows 'Not written yet', but the seal keeps her text.",
+     "fix": "Fall back to circle.chapter_house_location when papersHouse is empty, or accept this as legacy-only."
+    },
+    {
+     "level": "nit",
+     "where": "backend/vtt/sheet_edits.py:139",
+     "problem": "_changed_part normalizes whitespace before diffing. An edit that changes only whitespace in a long field therefore logs the same last word on both sides (e.g. 'style ...hat to ...hat'). A change ending a sentence also gives four dots ('...few pockets....') once the line's period is added.",
+     "fix": "Optional: when the normalized values are equal, fall back to _shown, and skip the trailing '...' when the line ends the sentence."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/gm/SceneManager.jsx:259",
+     "problem": "The End receipt always says 'Circle spending closes until the next assignment's dispatch.' But when spending was already locked, End sets no flag, and the dispatch will not open it.",
+     "fix": "Acceptable as is, since the spending is closed either way. Optionally word it 'Circle spending stays closed until...' or leave it."
+    }
+   ],
+   "items_ok": [
+    "#74: finalize lets the players' trimmed chapter_house win, and the Lightkeeper's text stays only when theirs is empty. handle_update_circle refuses name, chapter_house_location, circle_ability and insignia before the seal, with a 409, under the lock and with a rollback; access.py's insignia 409 fires first. CirclePage before the seal shows the name the seal would take (nameOnTheSeal), the players' house or a blank, and 'Chosen by vote'. It has no Edit buttons or select, and the i 'Not sealed yet' is 44px on the phone. Verified in Chromium on phone and laptop. The pinned test_circle_rest test is flipped in place.",
+    "#75: _changed_part shows the differing words with one word of context and clips each side. Short values are unchanged. Tested.",
+    "#76 (circle.py part): reporter.is_dead is re-checked under the circle lock, and a report filed before the death is kept. Tested.",
+    "88.10: the advance line gains ' Its Stitch, Refresh and Train are back to N each.' Seen in Chromium; the two advance tests are flipped in place.",
+    "88.12: a raise is clamped to max(old, 12), so a carry-over is kept and a lowering works, with no log line when nothing changed. +1 is disabled at 12 or more. Tested.",
+    "88.u11 server side: End closes open spending, sets the flag and logs a line. The first dispatch reopens it and logs a line. The toggle drops the flag. A spend refusal now says why (409). gm_update_circle and toggle lock the row. The SceneManager i is updated. Verified in Chromium at all three sizes, including the refusal and the reopen.",
+    "88.u13: an amendment with the same responses and the same trimmed note is refused with 'Nothing changed.' and nothing is logged.",
+    "88.u20: the Illumination h3 is named 'Illumination n of 12', and the i keeps its own name.",
+    "88.i1: 'Line filed' shows on the card front, live and after a reload.",
+    "Docs: WEBSOCKET 4.2/4.6, FAQ :169/:211/:240/:248/:252/:295 and QUIRKS :191 are edited in place. No em dashes, no model names, commit trailers correct.",
+    "Tests: 281 passed in the group's files plus test_surface, and 497 passed in the neighbouring files. vite build OK."
+   ],
+   "items_incomplete": [
+    "88.u12: amended_at is stored and sent, but the Lightkeeper's desk drops it live (gameStore.js:1469, owned by the restarts group), so the Amended mark appears only after a reload. It needs a hand-off to the restarts group.",
+    "88.u11: a player can set or clear the new spending_paused flag (it is missing from access.py RESERVED_ANSWERS). refillRule's spending wording on both Circle pages is not brought in line with decisions_fix4 2.",
+    "88.3: the confirm is skipped when reports were never opened and none is filed, because it is gated on reportsDue."
+   ]
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Review should: a player could write backstory_answers.spending_paused through circle_backstory_update (88.u11)",
+     "what": "backend/vtt/ws/handlers/circle.py handle_circle_backstory_update: a question_key of SPENDING_PAUSED is refused with action_rejected 403 \"Not allowed.\" and nothing is stored. This matches the keys access.py reserves. I put the check in the charter-owned handler and left access.py alone, because triage8.md gives access.py to group A only. New test test_fix8_circle.test_no_one_writes_the_spending_flag_through_the_backstory covers a player setting the flag (the next dispatch then opens nothing) and a player blanking it after End Assignment (it stays true). WEBSOCKET.md 4.6 circle_backstory_update row and FAQ :295 edited in place.",
+     "checked": "test_fix8_circle 11 passed; test_fix8_circle + test_ws_circle + test_surface + test_access: 575 passed. Chromium run: the player's socket got the 403 and the DB had no flag"
+    },
+    {
+     "item": "Review should and incomplete: the 88.3 confirm was skipped when reports were never opened",
+     "what": "frontend/src/components/gm/CirclePage.jsx: the confirm now depends on unfiledNames(investigators, reports).length > 0, whether or not reports are due. The visible 'Not filed:' line keeps its reportsDue gate. Before reports are due, when nobody is named above the button, the armed hint reads \"Press again to add N Illumination before any report is filed.\" Once reports are due it keeps \"...without their keys.\" FAQ :248 edited in place.",
+     "checked": "Chromium at 390x844, 820x1180 and 1366x768 against backend 8380. Reports closed with none filed: no Not filed line, Add asks with the new hint, and Cancel brings back Add 1 Illumination. With reports open: the Not filed line shows and the hint says 'without their keys'. Screenshots viewed, no page errors"
+    },
+    {
+     "item": "Review should and incomplete: refillRule spending wording (decisions_fix4 2)",
+     "what": "frontend/src/game/circleResources.js refillRule (both variants, printed on the Lightkeeper's Circle page and behind the i on CircleView): \"Each player may spend up to two each assignment, whenever the Lightkeeper opens spending; End Assignment closes it until the next assignment's dispatch and starts the count again.\" The comment above it is updated too. No other branch touches this file (checked with git diff on the four other fix8 branches).",
+     "checked": "vite build; Chromium at all three sizes: the note under the resources reads the new sentence"
+    },
+    {
+     "item": "Nit: the resources card after End Assignment",
+     "what": "CirclePage.jsx: while circle.backstory_answers.spending_paused is set, the label reads 'Closed until the dispatch' instead of 'Spending locked'. When the Lightkeeper locked spending herself it still reads 'Spending locked'.",
+     "checked": "Chromium at all three sizes, both states, screenshot viewed"
+    },
+    {
+     "item": "Nit: chapter house before the seal on legacy data",
+     "what": "CirclePage.jsx: before the seal, papersHouse falls back to circle.chapter_house_location when the players wrote none, which is the house the seal keeps. FAQ :211 edited in place.",
+     "checked": "Chromium on phone and laptop: the unsealed charter shows 'The bell tower' with no players' answer"
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Review blocking and incomplete: the 88.u12 Amended mark is not shown live (gameStore.js:1469 drops amended_at)",
+     "why": "gameStore.js may be edited only by the restarts group, and fix8-restarts does not keep amended_at yet (checked with git show). The server sends amended_at and CirclePage.jsx already shows it, so only the store is missing. Handed off to restarts: in the assignment_report_submitted handler, add amended_at to the destructure and store it as ...(amended_at ? { amended_at } : {}) beside note. The PR should list this, and the mark should be re-checked live after the merge (file, then amend, with the Lightkeeper's Circle page open). Until then the mark appears only after a reload."
+    },
+    {
+     "item": "Nit: _changed_part on a whitespace-only change, and the four dots at a sentence end (sheet_edits.py)",
+     "why": "Cosmetic. The suggested fallback to _shown would still print the same text on both sides, so it is not clearly better. Left as is."
+    },
+    {
+     "item": "Nit: End's receipt wording when spending was already locked (SceneManager.jsx)",
+     "why": "The reviewer called it acceptable as is: spending is closed after End either way."
+    }
+   ],
+   "choices": [
+    "The spending_paused refusal is in circle.py's handler, not in access.py RESERVED_ANSWERS, because triage8.md says 'access.py: A only'. It uses the same 403 \"Not allowed.\" the reserved keys get, and it applies to the Lightkeeper's socket too (no UI sends that key).",
+    "88.3: two hint sentences. Once reports are due, under the Not filed line, it keeps the decided wording. Before then, when no names are shown, it reads \"Press again to add N Illumination before any report is filed.\" Either way it is one sentence with the one-verb Add.",
+    "refillRule wording: \"...whenever the Lightkeeper opens spending; End Assignment closes it until the next assignment's dispatch and starts the count again.\" This keeps the SceneManager i's words ('until the next assignment's dispatch').",
+    "The closed label reads 'Closed until the dispatch', short enough for the card's head row on a phone."
+   ],
+   "protocol": [
+    "circle_backstory_update: question_key 'spending_paused' is now refused with action_rejected 403 \"Not allowed.\", from players and the Lightkeeper alike. Before, it was stored.",
+    "No new message types, DB columns or API shapes"
+   ],
+   "commits": [
+    "c81f31f Refuse the spending flag through circle_backstory_update",
+    "a3e0f16 Circle page after review: Add asks before reports are due, closed label"
+   ],
+   "tests": "backend/tests/test_fix8_circle.py: 11 passed, including the new test_no_one_writes_the_spending_flag_through_the_backstory. test_fix8_circle + test_ws_circle + test_surface + test_access: 575 passed, run on the throwaway database fix_charter_rv, which is now dropped. Frontend: vite build OK (/tmp/build_charter_8380). Browser checks (/tmp/charter_8380/check2.js and check.js) in Chromium against backend 8380 and preview 4380 all passed at 390x844, 820x1180 and 1366x768 with no page errors, and the screenshots were viewed. Both servers were stopped by PID and fix_charter_8380 dropped. The worktree is clean."
+  }
+ },
+ {
+  "group": "papers",
+  "impl": {
+   "done": [
+    {
+     "item": "#76 Dead desk: no report form",
+     "what": "CircleView.jsx: on a dead desk with no filed report the keys, the line box and Send report are replaced by 'A dead investigator files no report.'; Amend is hidden for the dead; a filed report still shows as filed",
+     "checked": "Chromium at phone and laptop with the investigator set dead (Stay and look at the sheet): no Send report button, no checkboxes, the line shown; frontend builds"
+    },
+    {
+     "item": "88.4 Formation parts done tick",
+     "what": "CircleCreationPopup.jsx: Section takes done; a TickMark with an sr-only '(done)' beside the title and on the phone strip numeral ('I. Question, done'). Done: voted question, name, ability, insignia; chapter house non-empty; every other living member has a relationship proposed or answered by me and none waits on my reply",
+     "checked": "Chromium phone and laptop: ticks appear on I and III after a vote and a house save, strip names read 'I. Question, done'"
+    },
+    {
+     "item": "88.9 Advancement dialog wording",
+     "what": "CircleView.jsx: 'The Illumination track is full:' removed, line now '2 advancements for Iris Vane.'",
+     "checked": "Chromium phone and laptop dialog text read back"
+    },
+    {
+     "item": "88.11 Advancement receipt wording",
+     "what": "CircleView.jsx appliedLine capitalizes the drive: '+2 Nerve drive', '+1 Nerve and +1 Cunning drive'",
+     "checked": "code and build only; the receipt was not confirmed in the browser (the confirm needs a live advance)"
+    },
+    {
+     "item": "88.14 Stale tab Confirm advancement",
+     "what": "CircleView.jsx AdvancementModal reads connectionState and reconnect: while not open Confirm is aria-disabled and does nothing; for 'replaced' a line 'This desk is open in another tab. Use this tab, then confirm.' with a Use this tab button; for other states 'The desk is reconnecting. Confirm when it is back.'",
+     "checked": "Chromium phone and laptop with a second tab opened on the same desk: the alert and Use this tab button show, screenshot looked at"
+    },
+    {
+     "item": "88.20 Chapter House draft hides another member's save",
+     "what": "CircleCreationPopup.jsx status line reads 'Another member changed this. Leaving the box replaces it.' when chapter_house changes from another desk while the draft box is focused",
+     "checked": "Chromium phone and laptop: a second member's circle_backstory_update over a node socket while the box held a draft"
+    },
+    {
+     "item": "88.u7 Circle spend announced; Train die held",
+     "what": "CircleView.jsx: 'Spent 1 Stitch.' (visible and in the sr-only status) when the circle's count drops after this desk's spend, cleared after 6 s; 'Train die held.' or 'N Train dice held.' while character.train_bonus",
+     "checked": "Chromium phone, tablet, laptop: spent Stitch then Train, both lines seen"
+    },
+    {
+     "item": "88.u9 Empty dispatch",
+     "what": "DispatchNote.jsx: with no location, atmosphere or text one line 'No dispatch yet.' replaces the empty Location and Atmosphere rows",
+     "checked": "Chromium laptop screenshot of the desk rail"
+    },
+    {
+     "item": "88.u11 Player spending i text and spendRefusal display",
+     "what": "CircleView.jsx: Circle Resources i gains 'Spending closes when an assignment ends and opens again with the next assignment's dispatch.'; spendBlock says 'Spending is closed until the next assignment starts.' when circle.backstory_answers.spending_paused is set (charter group's flag), else the old locked line; spendRefusal.detail is shown as a role=alert line for 8 s when the store field exists",
+     "checked": "build only for spendRefusal and spending_paused (neither exists on this branch until restarts and charter merge); i text not opened in the browser"
+    },
+    {
+     "item": "88.u20 Illumination heading name",
+     "what": "CircleView.jsx h3 gets aria-label 'Illumination 3 of 12' (count capped at 12); the InfoTerm keeps its own button name",
+     "checked": "Chromium: label read back as 'Illumination 0 of 12'"
+    },
+    {
+     "item": "88.u21 Name suggestion counter labelled",
+     "what": "CircleCreationPopup.jsx: the bare 1/5 replaced by a status line 'Your suggestions: 1 of 5' and 'You have made 5 suggestions.' at the limit",
+     "checked": "Chromium phone and laptop, 1 of 5 seen; the limit text not exercised"
+    },
+    {
+     "item": "88.i3 Stitch with no marks",
+     "what": "CircleView.jsx: armed Stitch line reads 'No marks to clear. Press again to spend it anyway.' while body, brain and bleed marks are all 0 (also in the sr-only ask); nothing blocked",
+     "checked": "Chromium phone, tablet, laptop"
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Docs (FAQ.md, DESIGN.md, WEBSOCKET.md, QUIRKS.md)",
+     "why": "triage8.md assigns the papers group no doc places; the spending wording in FAQ and QUIRKS belongs to the charter group, and no server behaviour or message changed here"
+    },
+    {
+     "item": "CircleView dispatch lines for 88.u9",
+     "why": "CircleView does not render a dispatch, only DispatchNote does"
+    },
+    {
+     "item": "Backend tests",
+     "why": "no server change in this group"
+    }
+   ],
+   "choices": [
+    "88.4: the Name part is done on a vote for a name, not on suggesting one; the Question part is done on the vote alone (the personal answer is optional and does not count)",
+    "88.4: the Relationships part is not done when there is no other living member",
+    "88.20: the backstory_update payload carries no author, so the line says 'Another member'; circle.py is the charter group's",
+    "88.14: for connection states other than 'replaced' the line reads 'The desk is reconnecting. Confirm when it is back.' with no button, since 'open in another tab' would be false there",
+    "88.u7: 'Train die held.' shows for the player only (not the Lightkeeper) while character.train_bonus, with 'N Train dice held.' for more than one; the 'Spent 1 X.' line shows 6 seconds",
+    "88.u11: the spending-closed line uses backstory_answers.spending_paused if the circle frame carries it, else the old locked wording; the refusal line shows 8 seconds and clears when the player presses Spend again",
+    "88.u9: line is italic sepia 'No dispatch yet.'; also shown when only dispatch template fields are empty",
+    "#76: Amend is hidden on a dead desk even while reports are open"
+   ],
+   "protocol": [
+    "none: client only; reads store fields spendRefusal (restarts group) and circle.backstory_answers.spending_paused (charter group), both optional"
+   ],
+   "commits": [
+    "3619e09 Papers: report closed to the dead, formation done ticks, circle spend notes and wording"
+   ],
+   "tests": "[\"No backend tests run (no server change). Frontend builds with npx vite build. Checked in Chromium against a local table at 390x844, 820x1180 and 1366x768. Servers on 8390 and 4390 stopped and database fix_papers_8390 dropped.\"]"
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/CircleView.jsx:481-483",
+     "problem": "AdvancementModal treats every connectionState other than 'open' as 'The desk is reconnecting'. That includes 'idle', 'connecting' and 'refused'. A refused connection would read as reconnecting, and no button offers a way out.",
+     "fix": "Show the reconnecting line only for 'reconnecting' and 'connecting'. For 'refused' and 'idle', say the desk is not connected, or point at the ConnectionBanner's Reconnect now."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/CircleView.jsx:636-650, 693-694",
+     "problem": "The 'Spent 1 X.' note fires on any drop of that resource's count within 5 s of this desk's press. If the press was refused and another member spends the same resource inside that window, this desk announces a spend that was not its own.",
+     "fix": "Accept it as is, or tie the announcement to the character's own resources_spent_assignment rising by 1 as well as the circle count dropping."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/CircleCreationPopup.jsx:440",
+     "problem": "'Another member changed this. Leaving the box replaces it.' also shows when this player has not typed. In that case blur sends nothing (handleLocationBlur sends only a changed box), so the box then takes the newer text and 'replaces' reads backwards. The textarea also keeps showing the stale text while focused.",
+     "fix": "When houseDraft equals houseAtFocus.current, word it as 'Another member changed this. Leave the box to see it.' Otherwise keep the current wording."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/CircleCreationPopup.jsx:157",
+     "problem": "The Chapter House part's done tick follows the shared box, so it shows for every member once anyone has written it. Relationshipsdone uses `some` per pair and could pass while a second relationship between the same pair still waits on this player.",
+     "fix": "Accept it, because the box is shared by design. For relationships, check that no relationship involving me has last_actor_id !== myId and status !== 'accepted'."
+    },
+    {
+     "level": "nit",
+     "where": "frontend/src/components/pc/CircleView.jsx (88.11, 88.u11, 88.u7)",
+     "problem": "The advancement receipt wording, the spending i text, the spendRefusal and spending_paused paths, and the 5-suggestion limit text were checked by build only. I did not exercise any of them in Chromium. I read the code and built the frontend, which succeeds.",
+     "fix": "Re-check after the merge with the restarts and charter groups, when spendRefusal and spending_paused exist."
+    }
+   ],
+   "items_ok": [
+    "All 12 items are present in the diff, and the diff touches only the three files this group owns: CircleView.jsx, CircleCreationPopup.jsx and DispatchNote.jsx. No store, server or doc edits.",
+    "#76: a dead desk with no report shows 'A dead investigator files no report.' in place of the keys, the line box and Send report. A filed report still shows as filed, and Amend is hidden for the dead. This matches the triage. The server refusal belongs to the death and charter groups.",
+    "88.4: Section takes done and draws a TickMark with an sr-only '(done)'. The phone strip numerals carry the tick and the strip name, e.g. 'I. Question, done'. The relationship fields (from_character_id, to_character_id, last_actor_id, status) exist in the code. TickMark is imported.",
+    "88.9 and 88.11: dialog wording and the capitalised drive in the receipt match the triage text.",
+    "88.14: connectionState and reconnect exist in the store, and the 'replaced' value is real. Confirm is aria-disabled and does nothing while the socket is not open. The Use this tab button is 44px and follows the SheetEditor wording and pattern. The alert sits in the sticky footer, which now wraps.",
+    "88.20: houseAtFocus exists. The new status line applies only while the box has a draft and the stored house differs from what the box held at focus. The existing 'Not saved yet' and 'Saved' branches are kept.",
+    "88.u7, 88.u20, 88.u21 and 88.i3: the character fields train_bonus, train_dice and body, brain and bleed marks exist. The h3 aria-label leaves the InfoTerm button name intact. The suggestion counter text and the Suggest limit match. Stitch with no marks blocks nothing.",
+    "88.u9: the 'No dispatch yet.' branch is reached only when dispatch_text is empty (own is false), so text-only dispatches are unaffected.",
+    "88.u11: spendRefusal is not yet in the store, but the code reads it safely as undefined. spending_paused is read from circle.backstory_answers, which the serializer sends.",
+    "No em dashes in the added lines. `npx vite build` succeeds. No server change, so no WEBSOCKET.md, test_surface.py, schema or pinned-test changes are needed."
+   ],
+   "items_incomplete": [
+    "I did not run the Chromium browser checks. I reviewed the diff, read the surrounding code and built the frontend. Behaviours I did not see running: the stale-tab dialog, the 'Spent 1 X.' note timing, the done ticks on the phone strip, and the Chapter House status line when a second member saves.",
+    "I ran no backend tests. The group has no server change, and none of the reviewed files touch the backend."
+   ],
+   "summary": "I found no blocking or should-level problems. All 12 items are implemented as decided and stay inside the papers group's three files. The frontend builds. The five remaining issues are nits, the edge cases listed above. The dead-desk report form, the advancement wording, the stale-tab Confirm, the done ticks, the spend and Train notes, the empty dispatch line, the Illumination label, the suggestion counter and the Stitch hint all match triage8.md and decisions8.md. Nothing decided earlier is weakened. I did not run the Chromium checks or any backend tests, so this is a code read plus a build."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "Review nit: AdvancementModal connection wording",
+     "what": "CircleView.jsx: 'reconnecting' line only for reconnecting/connecting; refused/idle read 'The desk is not connected. Confirm when it is back.'",
+     "checked": "frontend builds; not re-run in Chromium"
+    },
+    {
+     "item": "Review nit: Chapter House note when this desk has not typed",
+     "what": "CircleCreationPopup.jsx: reads 'Another member changed this. Leave the box to see it.' when the box equals what it held at focus, else the old wording",
+     "checked": "frontend builds; not re-run in Chromium"
+    },
+    {
+     "item": "Review nit: Relationships done tick",
+     "what": "CircleCreationPopup.jsx: also requires no relationship involving me that is unaccepted and last acted on by someone else",
+     "checked": "frontend builds; not re-run in Chromium"
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Spent 1 X note tied to resources_spent_assignment",
+     "why": "Reviewer offered accepting it as is; the edge needs a refused press plus another member spending the same resource within 5 s, and the extra check adds coupling to a field this branch does not own."
+    },
+    {
+     "item": "Chapter House done tick follows the shared box",
+     "why": "Shared by design, reviewer says accept."
+    },
+    {
+     "item": "Chromium re-check of 88.11, 88.u11, 88.u21 limit text, stale-tab dialog, spend note timing",
+     "why": "Not redone. spendRefusal and spending_paused do not exist until the restarts and charter groups merge, and the changes this round are small wording branches checked by build. Re-check after the merge."
+    },
+    {
+     "item": "Backend tests",
+     "why": "No server change in this group."
+    }
+   ],
+   "choices": [
+    "Refused/idle connection state wording: 'The desk is not connected. Confirm when it is back.'",
+    "Chapter House untouched-box wording: 'Another member changed this. Leave the box to see it.'",
+    "Commit trailer uses the attribution lines from the session's system reminder (Claude Sonnet 5.5) rather than the Opus lines in the task text"
+   ],
+   "protocol": [
+    "none: client only"
+   ],
+   "commits": [
+    "e190f3e Papers: review nits on stale-tab line, chapter house note, relationships tick"
+   ],
+   "tests": "No backend tests run (no server change). npx vite build succeeds. No Chromium re-check this round."
+  }
+ },
+ {
+  "group": "ux",
+  "impl": {
+   "done": [
+    {
+     "item": "#82 Player's sheet does not offer Revive",
+     "what": "InvestigatorDossier.jsx: Revive button only when readOnly && traumaEdit?.revive (Lightkeeper's copy); dropped unused reviveCharacter store pick",
+     "checked": "Chromium phone and laptop: incapacitated player sheet has no Revive; build ok. LK copy not re-screenshotted."
+    },
+    {
+     "item": "#87 touch targets (ScarModal, RelationshipNegotiation)",
+     "what": "ScarModal radio rows and Hardened row, and relationship question buttons get min-h 44px on coarse pointers. Accept/Send/Propose already had it at 1bc48a0.",
+     "checked": "Build only; CSS-only change, ScarModal not opened in browser"
+    },
+    {
+     "item": "88.2 Used this assignment",
+     "what": "game/abilityUses.js ONCE_SHOWN set; InvestigatorDossier renderAbilityUse shows 'Used this assignment.' on player and read-only sheets (Death Defy, Compartmentalization, Steel Mind, In the Trenches, once-per-assignment uses, Not Again)",
+     "checked": "Chromium phone and laptop on player desk with Death Defy used. LK read-only copy shares the same code path but was not screenshotted."
+    },
+    {
+     "item": "88.6 Notebook Contents per phone",
+     "what": "NotebookView TOC_ROW_NARROW 66 to 60 (two title lines measured at 60px)",
+     "checked": "Chromium: phone now 6 rows (was 5 at 66), no overflow"
+    },
+    {
+     "item": "88.15 Superseded LK tab",
+     "what": "No change needed",
+     "checked": "Chromium wide and phone: old tab shows Use this tab, it reconnects, the other tab becomes superseded"
+    },
+    {
+     "item": "88.16 Join request slim toast",
+     "what": "JoinRequestPopup.jsx rewritten as name and role line with Approve, View, Later and 'N more waiting'; md:w-80; OperationsPanel props trimmed",
+     "checked": "Chromium phone, tablet, laptop; looked at phone and laptop screenshots"
+    },
+    {
+     "item": "88.17 New request clears closed note",
+     "what": "OperationsPanel tracks last pending ids; a newly arrived id clears goneId and closes the gone sheet",
+     "checked": "Chromium phone and laptop: withdrawn request shows note, new request clears it"
+    },
+    {
+     "item": "88.18 About Reset name",
+     "what": "GMCharacterSheet ArmedDetail label 'Reset'",
+     "checked": "Build; code reading"
+    },
+    {
+     "item": "88.19 Refused edit announced once",
+     "what": "Line under the sheet hidden while showEditor && restoreDraft",
+     "checked": "Build; not replayed in browser"
+    },
+    {
+     "item": "88.21 Join dialog buttons",
+     "what": "JoinCampaignForm: sm:justify-between only when onCancel is given",
+     "checked": "Browser: registry form without Cancel keeps Ask to join at left as before; the creator's Cancel layout not viewed"
+    },
+    {
+     "item": "88.u3 Relationship placeholder and hint",
+     "what": "Disabled answer box placeholder 'Pick a relationship first'; InfoTerm on the 'Your relationship to X' heading",
+     "checked": "Build only"
+    },
+    {
+     "item": "88.u25 Field Notes empty contents",
+     "what": "NotebookView: 'No field entries yet.' when the list is empty",
+     "checked": "Chromium phone"
+    }
+   ],
+   "skipped": [
+    {
+     "item": "88.u27 aria-pressed on chosen Raise",
+     "why": "Already present at CharacterCreator.jsx:1216 (aria-pressed={sel})"
+    },
+    {
+     "item": "88.15 code change",
+     "why": "Browser check passed, so nothing to fix; ConnectionBanner untouched"
+    }
+   ],
+   "choices": [
+    "ONCE_SHOWN includes the server's ONCE_PER_ASSIGNMENT abilities (Compartmentalization, Steel Mind, In the Trenches) beside Death Defy; University Resources left out because it is once per session",
+    "The toast drops the card's same-player hint and the All requests link; Reject sits on the Requests page behind View",
+    "Narrow Contents row set to a measured constant (60) instead of measuring the first rendered row, since rows vary between one and two lines",
+    "Join dialog justify-between applies only when a Cancel exists"
+   ],
+   "protocol": [],
+   "commits": [
+    "8f76768 Player's sheet no longer offers Revive; used once-per-assignment abilities say so; 44px scar and relationship targets",
+    "7d6ff37 Slim join toast, closed-request note cleared, notebook lines, small sheet fixes",
+    "93dfc2b Join dialog: space the buttons apart only when there is a Cancel"
+   ],
+   "tests": "[\"No backend tests run, since the group is client only. Frontend: npx vite build passed after each change. Chromium checks were done as described per item. Docs (FAQ.md, DESIGN.md) were not edited for these items. My servers were stopped and database fix_ux_8420 dropped.\"]"
+  },
+  "rev": {
+   "issues": [
+    {
+     "level": "should",
+     "where": "/home/user/wt/ux/DESIGN.md:381",
+     "problem": "DESIGN.md still describes the old join-request pop-up: 'New join request' heading, the request's full card, All requests link, Later. The change replaced it with a slim toast (name and role line, Approve, View, Later, 'N more waiting', md:w-80) and removed the card, the All requests link and the same-player hint. The repo rules say to update DESIGN.md when you change what it describes. The implementer's report says DESIGN.md and FAQ.md were not edited.",
+     "fix": "Edit that sentence in place to describe the toast. Say Reject and the card now sit behind View on the Requests page. Leave the rest of the paragraph (once per browser, no focus steal, status line, under drawer and dialogs) as it is."
+    },
+    {
+     "level": "should",
+     "where": "/home/user/wt/ux/frontend/src/components/gm/desk/JoinRequestPopup.jsx:46",
+     "problem": "The toast no longer shows the same-player hint ('Sent another request too'). I confirmed on the Requests page that this hint exists, as a red line on the card. The Lightkeeper can now press Approve in the toast without seeing that a second request from the same player is waiting. The implementer chose this knowingly and triage8 allows the slim form, so it is a judgement call.",
+     "fix": "Either add a short marker to the toast line when samePlayerOf(campaignRoster, request) is true (this means passing campaignRoster back in), or have FAQ/DESIGN say plainly that the hint now lives on the Requests page."
+    },
+    {
+     "level": "nit",
+     "where": "/home/user/wt/ux/frontend/src/components/shared/NotebookView.jsx:48",
+     "problem": "88.6 was done by lowering the constant from 66 to 60. Triage suggested measuring the first rendered row. At 390x844 on the Lightkeeper's notebook the list was 310px tall with rows of 60, 60, 44 and 44px, so the page shows 4 lines and about 78px stays empty. The count is sized for the worst case, two-line titles. The implementer's claim of 6 rows on a phone was not reproduced on this screen, and I did not check the player's desk.",
+     "fix": "Optional. Measure the first row's offsetHeight as triage suggested, or accept the worst-case sizing."
+    },
+    {
+     "level": "nit",
+     "where": "/home/user/wt/ux/frontend/src/components/pc/InvestigatorDossier.jsx:503",
+     "problem": "For once-per-assignment abilities in ABILITY_USES (I Know a Guy, Insider Access, Field Experience and so on) the Use button stays enabled after use, with 'Used this assignment.' beside it. The server refuses a repeat, and the 88.2 text is correct. ScarAbilityUse, by contrast, disables its button.",
+     "fix": "Optional. Disable the Use button when ONCE_SHOWN holds the name and ability_uses[name] >= 1."
+    },
+    {
+     "level": "nit",
+     "where": "/home/user/wt/ux/frontend/src/components/gm/OperationsPanel.jsx:97",
+     "problem": "88.17 works in the browser: the declined request's note showed, and a new request cleared it. The effect also clears the note when any new id arrives, even if the sheet being viewed is still a live pending request. That is harmless because goneId only matters for a gone request. Also untested: two requests arriving in one roster update while the viewed one is gone.",
+     "fix": "No change needed."
+    }
+   ],
+   "items_ok": [
+    "#82: Revive now shows only when readOnly && traumaEdit?.revive. In Chromium the player's sheet (incapacitated, phone and laptop) had no Revive. The Lightkeeper's copy of the sheet still has the REVIVE button. The unused store pick was removed, and the build is fine.",
+    "88.2: 'Used this assignment.' shows on the player's sheet and on the Lightkeeper's read-only copy for Death Defy (seen on both). Not Again goes through ScarAbilityUse, so there is no duplicate line. University Resources is left out because it is once per session, which is reasonable.",
+    "#87: 44px coarse-pointer min heights are in the diff for the ScarModal radio rows and the Hardened row, and for the relationship question buttons. Accept, Send, Propose and Edit already had 44px at the base commit. I read the code only and did not open ScarModal in the browser.",
+    "88.15: no change needed, and the browser agrees. A second Lightkeeper tab got 'Use this tab' on phone and laptop. ConnectionBanner is untouched.",
+    "88.16: the toast showed 'Mara Lowe \u00b7 Slink \u00b7 Criminal', Approve, View, Later and '1 more waiting'. It was readable at 390px and at laptop width (w-80, bottom right), with no console errors. View opens the sheet, which has Reject. Buttons are 40px on a mouse and 44px on touch.",
+    "88.17: seen in Chromium. After a request was declined at another desk, the open sheet showed its note. Another player's new request then cleared the note.",
+    "88.18: the label is now 'Reset'. The button's accessible name is 'About Reset' (the ArmedDetail adds 'About'), so 'About About Reset' is gone.",
+    "88.19: the line under the sheet is hidden only while showEditor && restoreDraft. restoreDraft is cleared on editor close and on Edit sheet, so the error still shows once when the editor is not open. Checked by reading the code.",
+    "88.21: justify-between from sm applies only when onCancel exists. The only user of onCancel is CharacterCreator.jsx:1639, whose Cancel sits first in the DOM, so it goes left. Registry forms keep the old right alignment. Checked by reading the code.",
+    "88.u3 and 88.u25: the placeholder 'Pick a relationship first' and the InfoTerm on the heading are in the diff. 'No field entries yet.' showed in Chromium on the phone.",
+    "88.u27: aria-pressed={sel} is already at CharacterCreator.jsx:1216, so skipping it is right.",
+    "The frontend builds with npx vite build. There are no em dashes in the diff, and gameStore.js and other groups' files are untouched. The diff is confined to ux-owned files, and no backend, schema or WebSocket change is made, so no test_surface or test_00_startup update is due.",
+    "Servers (PIDs 24899 and 24950) were stopped and database fix_ux_8430 was dropped."
+   ],
+   "items_incomplete": [
+    "DESIGN.md:381 (the join-request pop-up paragraph) was not updated for the toast; see the first issue.",
+    "88.6 is solved by a constant, not by measuring the first row as triage advised; see the notebook nit.",
+    "The implementer did not check 88.u3 (relationship placeholder and hint), 88.19 or the creator's Cancel layout (88.21) in the browser, and I did not either. Each was read in code and looks correct. I also did not open ScarModal or the relationship hint slip in Chromium."
+   ],
+   "summary": "Nothing blocking. Every claimed item is in the diff and behaves as described where I checked it in Chromium (phone, laptop and Lightkeeper's desk): Revive is gone from the player's sheet and kept on the Lightkeeper's, 'Used this assignment.' shows on both, the slim toast works, the closed-request note clears, and 'Use this tab' is present. The frontend builds. The gaps are documentation: DESIGN.md:381 still describes the old pop-up, and the toast drops the same-player hint without saying so. The notebook fix is a constant, not the measurement triage suggested, and it still sizes for the worst case."
+  },
+  "repair": {
+   "done": [
+    {
+     "item": "DESIGN.md join-request pop-up paragraph (should)",
+     "what": "DESIGN.md Join requests section: replaced the old pop-up description (New join request heading, full card, All requests) with the slim toast (name and role line, Approve, View, Later, same-player line, N more waiting), and said Reject and the card sit behind View on the Requests page. Rest of the paragraph untouched.",
+     "checked": "Read the diff; no em dashes."
+    },
+    {
+     "item": "Toast drops same-player hint (should)",
+     "what": "JoinRequestPopup.jsx takes a samePlayer prop and shows the oxblood line 'Already has an investigator here.' or 'Sent another request too.'; OperationsPanel.jsx imports samePlayerOf from CorrespondenceStack and passes it.",
+     "checked": "vite build; Chromium phone and laptop: a second request from a player with a living investigator shows the line in the toast. Screenshot looked at."
+    }
+   ],
+   "skipped": [
+    {
+     "item": "Reviewer nit: 88.6 measure first row instead of a constant",
+     "why": "Rows vary between one and two lines, so a first-row measurement would be wrong for the rest. The constant 60 is sized for the worst case on purpose, which the reviewer accepted as an option."
+    },
+    {
+     "item": "Reviewer nit: disable Use button after a once-per-assignment use",
+     "why": "The server refuses a repeat, and 'Used this assignment.' is shown beside the button. Changing the button's state is not plainly cheap, because it sits inside the AbilityUse component, so I left it."
+    },
+    {
+     "item": "Reviewer nit: 88.17 effect clears the note on any new id",
+     "why": "Reviewer said no change needed."
+    },
+    {
+     "item": "Browser check of 88.u3, 88.19, 88.21 Cancel layout and ScarModal",
+     "why": "Not replayed in Chromium. They are CSS or code-reading changes the reviewer read in code and judged correct, and each needs setup that is out of proportion for this fix pass."
+    }
+   ],
+   "choices": [
+    "The toast's same-player line reuses the Requests-card wording and oxblood colour, in a small bold serif line under the buttons.",
+    "DESIGN.md names the toast as fix round 8, 88.16, in the same sentence structure as the other entries."
+   ],
+   "protocol": [],
+   "commits": [
+    "c4aa9e8 Join toast says when the player has another investigator or request"
+   ],
+   "tests": "\"No backend tests run: the group is client only and no backend, schema or WebSocket file changed. Frontend: npx vite build passed. Chromium (phone and laptop) checked the toast. Servers stopped by PID and database fix_ux_8440 dropped.\""
+  }
+ }
+]
