@@ -131,7 +131,7 @@ const ScarModal = () => {
           return (
             <label
               key={key}
-              className={`flex items-center justify-between gap-2 cursor-pointer py-0.5 px-1 hover:bg-parchment-deep/50 rounded transition-colors ${disabled ? 'opacity-40 pointer-events-none' : ''}`}
+              className={`flex items-center justify-between gap-2 cursor-pointer py-0.5 px-1 [@media(pointer:coarse)]:min-h-[44px] hover:bg-parchment-deep/50 rounded transition-colors ${disabled ? 'opacity-40 pointer-events-none' : ''}`}
             >
               <span className="flex items-center gap-2">
                 <input
@@ -186,7 +186,7 @@ const ScarModal = () => {
         <form onSubmit={handleSubmit} noValidate className="relative z-10 space-y-4">
           {/* Hardened ability: skip action shifts */}
           {isHardened && !keepsByAbility && !fatal && (
-            <label className="flex items-center gap-2 cursor-pointer bg-cream border border-parchment-deep rounded px-3 py-2">
+            <label className="flex items-center gap-2 cursor-pointer bg-cream border border-parchment-deep rounded px-3 py-2 [@media(pointer:coarse)]:min-h-[44px]">
               <input
                 type="checkbox"
                 checked={skipShifts}

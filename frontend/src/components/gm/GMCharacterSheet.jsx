@@ -376,7 +376,7 @@ export const GMCharacterSheet = ({ character: rosterItem, onClose, onApprove, on
                   {armed ? 'Reset' : 'Reset drive and ability uses'}
                 </button>
                 {/* The rule beside it (fix round 7, 60.6): drives come back with a Refresh, not at End Assignment */}
-                <ArmedDetail label="About Reset" above={false}
+                <ArmedDetail label="Reset" above={false}
                   text="Refills this investigator's drives and resistance and clears ability uses. For a correction or a new session; the rules restore drives with a Refresh." />
                 </>
               )}

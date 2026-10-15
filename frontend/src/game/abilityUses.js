@@ -57,3 +57,12 @@ export const SCAR_ABILITIES = {
   'Not Again':        { cost: 'take a scar', keepsRatings: true, once: true },
   'Forbidden Ritual': { cost: 'take a Bleed scar', mark: 'bleed' },
 };
+
+// Abilities used once per assignment (backend ONCE_PER_ASSIGNMENT and the once entries of
+// ABILITY_USES and SCAR_ABILITIES), whose use the sheet says in words on both desks, the
+// Lightkeeper's copy included. University Resources is once per session, so it is left out.
+export const ONCE_SHOWN = new Set([
+  ...Object.entries(ABILITY_USES).filter(([, u]) => u.cost.startsWith('once per assignment')).map(([n]) => n),
+  ...Object.entries(SCAR_ABILITIES).filter(([, u]) => u.once).map(([n]) => n),
+  'Death Defy', 'Compartmentalization', 'Steel Mind', 'In the Trenches',
+]);

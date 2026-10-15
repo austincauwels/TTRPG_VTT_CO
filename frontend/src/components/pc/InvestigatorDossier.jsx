@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useShallow } from 'zustand/react/shallow';
-import { ABILITY_USES, QUESTION_MAX, SCAR_ABILITIES } from '../../game/abilityUses';
+import { ABILITY_USES, ONCE_SHOWN, QUESTION_MAX, SCAR_ABILITIES } from '../../game/abilityUses';
 import { GEAR_RULES, countedGear, gearLimit, writtenIn } from '../../game/gear';
 import useGameStore from '../../store/gameStore';
 import { SheetDivider } from '../shared/Decorations';
@@ -472,7 +472,7 @@ const GEAR_ICONS = {
 const infoTabs = new Map();
 
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false, traumaEdit = null }) => {
-  const { character: storeChar, circle, updateDrive, rollAction, takeMark, reviveCharacter, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster, editSheet, updateGear, sheetEditError } = useGameStore(useShallow(s => ({
+  const { character: storeChar, circle, updateDrive, rollAction, takeMark, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster, editSheet, updateGear, sheetEditError } = useGameStore(useShallow(s => ({
     character: s.character,
     editSheet: s.editSheet,
     updateGear: s.updateGear,
@@ -487,7 +487,6 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
     updateDrive: s.updateDrive,
     rollAction: s.rollAction,
     takeMark: s.takeMark,
-    reviveCharacter: s.reviveCharacter,
     setStage: s.setStage,
     pendingGildedChoice: s.pendingGildedChoice,
     isRolling: s.isRolling,
@@ -496,17 +495,24 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
   // The "Use" control for an ability with a cost outside a roll (not on a read-only sheet,
   // nor on a dead investigator's, which is a record: the server refuses the use)
   const renderAbilityUse = (name) => {
-    if (readOnly || character?.is_dead) return null;
+    const usedUp = ONCE_SHOWN.has(name) && (character?.ability_uses?.[name] || 0) >= 1;
+    // A once-per-assignment ability that has been used says so, on every copy of the sheet
+    const usedLine = usedUp ? <span className="ml-2 text-sm italic text-sepia">Used this assignment.</span> : null;
+    if (readOnly || character?.is_dead) return usedLine;
     if (ABILITY_USES[name]) {
       const allies = livingMembers(campaignRoster?.active_investigators).filter(inv => inv.id !== character?.id);
-      return <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} character={character} />;
+      return <>
+        <AbilityUse key={name} name={name} use={ABILITY_USES[name]} onUse={useAbility} allies={allies} character={character} />
+        {usedLine}
+      </>;
     }
     if (SCAR_ABILITIES[name]) {
+      // ScarAbilityUse says it itself
       return <ScarAbilityUse key={name} name={name} use={SCAR_ABILITIES[name]} character={character}
         scarWaiting={pendingScar && (pendingScar.characterId == null || pendingScar.characterId === character?.id)}
         onUse={openAbilityScar} />;
     }
-    return null;
+    return usedLine;
   };
   const { held: heldMark, hold: holdUndoMark, undo: undoMark, flush: flushMark, secondsLeft: markSecondsLeft, sendError: markSendError } = useMarkUndo(takeMark);
   // Why the table refused an answer to a soak or Death Defy offer, whose mark then landed;
@@ -870,7 +876,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             Edit sheet
           </button>
         )}
-        {canEdit && sheetEditError && (
+        {/* While the reopened editor holds the draft it shows the reason itself: said once */}
+        {canEdit && sheetEditError && !(showEditor && restoreDraft) && (
           <p role="alert" className="basis-full font-serif text-base text-oxblood leading-snug">{sheetEditError}</p>
         )}
       </div>
@@ -1464,9 +1471,9 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
                   Create a new investigator
                 </button>
               )}
-              {character?.incapacitated && !character?.is_dead && (!readOnly || traumaEdit?.revive) && (
+              {character?.incapacitated && !character?.is_dead && readOnly && traumaEdit?.revive && (
                 <button
-                  onClick={readOnly ? traumaEdit.revive : reviveCharacter}
+                  onClick={traumaEdit.revive}
                   className="min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
                 >
                   Revive

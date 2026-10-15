@@ -8,7 +8,7 @@ import { GMCharacterSheet } from './GMCharacterSheet';
 import { DiceVault } from '../pc/DiceVault';
 import { NotebookView } from '../shared/NotebookView';
 import { GMDeskHeader } from './desk/GMDeskHeader';
-import { CorrespondenceStack } from './desk/CorrespondenceStack';
+import { CorrespondenceStack, samePlayerOf } from './desk/CorrespondenceStack';
 import { JoinRequestPopup, useNewRequests } from './desk/JoinRequestPopup';
 import { FinalizeRosterSlip, FinalizedSlip } from './desk/FinalizeRosterSlip';
 import { CircleFormationStatus } from './desk/CircleFormationStatus';
@@ -91,7 +91,20 @@ export const OperationsPanel = () => {
   // Lightkeeper's eyes (fix round 7, 45.7); one answered at this desk closes as before.
   const answeredHere = useRef(null);
   const [goneId, setGoneId] = useState(null);
+  // The requests waiting at the last look: when another player's request arrives, the note
+  // about the closed one goes and its sheet closes (fix round 8, 88.17)
+  const lastWaiting = useRef(null);
   useEffect(() => {
+    const ids = (campaignRoster.pending_investigators || []).map(p => p.id);
+    const before = lastWaiting.current;
+    lastWaiting.current = ids;
+    if (before && ids.some(id => !before.includes(id) && id !== selectedInvestigator?.id)) {
+      setGoneId(null);
+      if (selectedInvestigator?.status === 'pending' && !ids.includes(selectedInvestigator.id)) {
+        setSelectedInvestigator(null);
+        return;
+      }
+    }
     if (selectedInvestigator?.status !== 'pending') return;
     const waiting = campaignRoster.pending_investigators || [];
     if (waiting.some(p => p.id === selectedInvestigator.id)) {
@@ -376,13 +389,11 @@ export const OperationsPanel = () => {
       {popup && current !== 'requests' && (
         <JoinRequestPopup
           request={popup}
-          campaignRoster={campaignRoster}
           more={fresh.length - 1}
+          samePlayer={samePlayerOf(campaignRoster, popup)}
           onApprove={handleStamp}
-          onReject={handleReject}
           onView={viewRequest}
           onLater={() => markSeen([popup.id])}
-          onAll={() => { markSeen(fresh.map(p => p.id)); chooseTab('requests'); }}
           busy={requestBusy}
           error={requestError}
         />
