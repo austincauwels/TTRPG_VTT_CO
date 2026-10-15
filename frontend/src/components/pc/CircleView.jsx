@@ -479,7 +479,9 @@ export function AdvancementModal() {
           {offline && (
             <div role="alert" className="basis-full flex flex-wrap items-center gap-x-3 gap-y-1">
               <p className="flex-1 basis-48 font-serif text-base text-oxblood leading-snug">
-                {connectionState === 'replaced' ? 'This desk is open in another tab. Use this tab, then confirm.' : 'The desk is reconnecting. Confirm when it is back.'}
+                {connectionState === 'replaced' ? 'This desk is open in another tab. Use this tab, then confirm.'
+                  : (connectionState === 'reconnecting' || connectionState === 'connecting') ? 'The desk is reconnecting. Confirm when it is back.'
+                  : 'The desk is not connected. Confirm when it is back.'}
               </p>
               {connectionState === 'replaced' && (
                 <button type="button" onClick={() => reconnect()}

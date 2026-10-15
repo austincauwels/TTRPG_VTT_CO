@@ -153,7 +153,8 @@ export const CircleCreationPopup = () => {
   // and none waiting on this player's reply
   const relationshipsDone = others.length > 0 && others.every(inv => relationships.some(r =>
     ((r.from_character_id === myId && r.to_character_id === inv.id) || (r.to_character_id === myId && r.from_character_id === inv.id))
-    && (r.status === 'accepted' || r.last_actor_id === myId)));
+    && (r.status === 'accepted' || r.last_actor_id === myId)))
+    && !relationships.some(r => (r.from_character_id === myId || r.to_character_id === myId) && r.status !== 'accepted' && r.last_actor_id !== myId);
   const partDone = [!!myQuestionVote, !!myNameVote, (backstoryAnswers.chapter_house ?? '').trim() !== '', !!myAbilityVote, !!myInsigniaVote, relationshipsDone];
 
   // ─── Handlers ───────────────────────────────────────────────────────────────
@@ -437,7 +438,8 @@ export const CircleCreationPopup = () => {
                   none either once another member has replaced what this desk saved, since
                   nothing of this desk's is unsaved then */}
               <p role="status" className="font-serif italic text-sm text-sepia mt-1 text-right min-h-[1.25rem]">
-                {houseDraft !== null && house !== houseAtFocus.current && house !== houseDraft ? 'Another member changed this. Leaving the box replaces it.'
+                {houseDraft !== null && house !== houseAtFocus.current && house !== houseDraft
+                  ? (houseDraft === houseAtFocus.current ? 'Another member changed this. Leave the box to see it.' : 'Another member changed this. Leaving the box replaces it.')
                   : houseDraft !== null && houseDraft !== house ? 'Not saved yet'
                   : houseSent === null ? '' : !houseSent.ok ? 'Not saved yet' : house === houseSent.text ? 'Saved' : ''}
               </p>
