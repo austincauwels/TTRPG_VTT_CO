@@ -104,9 +104,9 @@ These fit the decisions, but Robert may not expect them:
 7. The roll log lines keep their existing em dash ("The Lightkeeper rolled — 5 ...").
 
 ## How it was checked
-- The Opus triage, five groups (each implemented, reviewed and repaired), and a hand merge with no conflicts.
+- One triage, five groups (each implemented, reviewed and repaired), and a hand merge with no conflicts.
 - The full backend suite: 2055 passed, 1 skipped.
-- A final Opus review of the whole diff, and three browser checks that replayed each issue's original steps against 1bc48a0 as the control, at phone, tablet and laptop sizes. The browser checks found 48 items fixed and 3 partly fixed. The repair finished #86 (the stamp after a reload) and 88.u3 (the hint cut off on a phone). For #79, a Non-Combatant card open during a restart still goes with no word, and FAQ.md now says so; a notice like Premonitions' would be a follow-up. The repair also closed every other "should" finding.
+- A final review of the whole diff, and three browser checks that replayed each issue's original steps against 1bc48a0 as the control, at phone, tablet and laptop sizes. The browser checks found 48 items fixed and 3 partly fixed. The repair finished #86 (the stamp after a reload) and 88.u3 (the hint cut off on a phone). For #79, a Non-Combatant card open during a restart still goes with no word, and FAQ.md now says so; a notice like Premonitions' would be a follow-up. The repair also closed every other "should" finding.
 - The vite build is clean.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
