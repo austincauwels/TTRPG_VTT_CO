@@ -1539,8 +1539,8 @@ const useGameStore = create(
           }
           else if (message.type === 'assignment_report_submitted') {
             // A report filed: the Lightkeeper's desk and its author's get it. The author's
-            // form shows what was filed, and its draft goes.
-            const { character_id, character_name, responses, submitted_at, note } = message.payload;
+            // form shows what was filed, and its draft goes. An amendment says when it was made.
+            const { character_id, character_name, responses, submitted_at, amended_at, note } = message.payload;
             const own = character_id === get().character?.id;
             set(state => {
               const drafts = { ...state.reportDrafts };
@@ -1550,7 +1550,7 @@ const useGameStore = create(
                   ...state.circleCreation,
                   reports: {
                     ...(state.circleCreation.reports || {}),
-                    [character_id]: { character_name, responses, submitted_at, ...(note ? { note } : {}) },
+                    [character_id]: { character_name, responses, submitted_at, ...(amended_at ? { amended_at } : {}), ...(note ? { note } : {}) },
                   },
                 },
                 ...(own ? { reportDrafts: drafts, reportSending: false, reportError: null } : {}),
