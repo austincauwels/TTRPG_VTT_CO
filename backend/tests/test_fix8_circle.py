@@ -83,7 +83,8 @@ def test_a_change_late_in_a_long_field_is_shown(client):
         wa.send("edit_sheet", changes={"style": STYLE + ", and a lantern"})
         assert _lines(wa.sync()) == [f"{a['name']}: style ...battered hat to ...battered hat, and a lantern."]
         wa.send("edit_sheet", changes={"style": STYLE.replace("many pockets", "few pockets") + ", and a lantern"})
-        assert _lines(wa.sync()) == [f"{a['name']}: style ...coat, many pockets... to ...coat, few pockets...."]
+        # A line ending on "..." takes no full stop after it (it read "....")
+        assert _lines(wa.sync()) == [f"{a['name']}: style ...coat, many pockets... to ...coat, few pockets..."]
         wa.send("edit_sheet", changes={"style": "Smart", "pronouns": "she/her"})
         assert _lines(wa.sync()) == [
             f"{a['name']}: pronouns Unlisted to she/her, style Soot-grey coat, few pockets (key), a bra... to Smart."]
@@ -245,6 +246,24 @@ def test_end_assignment_closes_spending_until_the_next_dispatch(client):
         assert wa.sync() == [_rejected("spend_resource", 409, "Spending is locked until the Lightkeeper opens it.")]
         gm.send("gm_update_circle", circle_id=cid, location="Docks")
         assert support.of_type(gm.sync(), "circle_update")[0]["payload"]["resources_editable"] is False
+
+
+def test_a_dispatch_through_update_circle_opens_spending_too(client):
+    """The Lightkeeper's circle page writes the dispatch's location through update_circle,
+    not gm_update_circle: that dispatch opens spending End Assignment closed too, with the
+    same line. A change that is not a dispatch (Illumination) opens nothing."""
+    camp, (a,), cid = _campaign(client)
+    support.update(Circle, cid, resources_editable=True, stitch=2, refresh=2, train=2)
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        gm.send("gm_end_assignment", circle_id=cid)
+        gm.sync()
+        gm.send("update_circle", circle_id=cid, illumination=1)
+        assert support.of_type(gm.sync(), "circle_update")[0]["payload"]["resources_editable"] is False
+        gm.send("update_circle", circle_id=cid, location="The lighthouse")
+        msgs = gm.sync()
+        assert support.of_type(msgs, "circle_update")[0]["payload"]["resources_editable"] is True
+        assert _lines(msgs)[-1] == "Spending is open again: up to two each."
+    assert "spending_paused" not in support.fetch(Circle, cid).backstory_answers
 
 
 def test_the_lightkeepers_own_choice_stands_after_end_assignment(client):

@@ -80,8 +80,10 @@ async def record_edit(ctx, character, said: list):
     Rolls, spends and the other in-play flows keep their own lines."""
     if not said:
         return
+    # A line that ends on a clipped value's "..." takes no full stop after it (it read "....")
+    body = ", ".join(said)
     message = {"type": "activity_log", "payload": {
-        "message": f"{character.name}: {', '.join(said)}.", "log_type": "field",
+        "message": f"{character.name}: {body}{'' if body.endswith('...') else '.'}", "log_type": "field",
         "ink_color": getattr(character, "ink_color", "") or ""}}
     if _edit_counts(ctx, character):
         await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, message, ctx.db)
@@ -183,6 +185,10 @@ def _circle_at_death(ctx, character):
     release fills it), or None for a character outside a campaign."""
     if not ctx.camp_id or character.status != "active" or character.campaign_id != ctx.camp_id:
         return None
+    # The death's own row first (the session does not autoflush), then the circle, in the
+    # order release_member locks them, so a release of the same member at the same moment
+    # waits for this one rather than deadlocking with it
+    ctx.db.flush()
     circle = ctx.db.query(Circle).filter(Circle.campaign_id == ctx.camp_id) \
         .populate_existing().with_for_update().first()
     if circle is None:

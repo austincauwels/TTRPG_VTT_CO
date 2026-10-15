@@ -81,6 +81,41 @@ def test_a_death_lowers_the_resources_on_every_desk(client):
     assert (circle.stitch, circle.refresh, circle.train) == (3, 3, 3)
 
 
+def test_a_death_locks_its_own_row_before_the_circle(client):
+    """The death's row is written before the circle is locked, the order release_member
+    locks them (the character, then the circle), so a release of the same member at the
+    same moment waits rather than deadlocking. It locked the circle first (the session
+    does not autoflush), with the character row still free."""
+    import time
+    import main
+    from sqlalchemy import text
+    from sqlalchemy.exc import OperationalError
+    camp, (a, b, c), cid = _sealed(client)
+    support.update(Character, c["id"], scars_count=3, scars_list=["a", "b", "c"], incapacitated=True)
+    holder = main.SessionLocal()
+    try:
+        holder.execute(text("SELECT id FROM circles WHERE id = :id FOR UPDATE"), {"id": cid})
+        with support.ws_connect(client, c["id"]) as wc:
+            wc.send("apply_scar", scar_text="d")
+            locked = False
+            deadline = time.monotonic() + 3
+            while not locked and time.monotonic() < deadline:
+                with main.SessionLocal() as probe:
+                    try:
+                        probe.execute(text("SELECT id FROM characters WHERE id = :id FOR UPDATE NOWAIT"),
+                                      {"id": c["id"]})
+                        probe.rollback()
+                        time.sleep(0.05)
+                    except OperationalError:
+                        locked = True
+            holder.commit()
+            wc.sync()
+        assert locked
+    finally:
+        holder.close()
+    assert support.fetch(Character, c["id"]).is_dead is True
+
+
 def test_a_death_never_raises_a_resource_and_cuts_waiting_earn_backs(client):
     """As at a release: a pool below the new maximum stays, and Resource Management's
     earn-backs waiting are cut to the points now missing."""
