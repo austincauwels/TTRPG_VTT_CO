@@ -159,7 +159,7 @@ export function AdvancementWaiting() {
 }
 
 export function AdvancementModal() {
-  const { character, circle, circleAdvancement, applyAdvancement, dismissCircleAdvancement, resumeCircleAdvancement, advancementDeferred, advancementError } = useGameStore();
+  const { character, circle, circleAdvancement, applyAdvancement, dismissCircleAdvancement, resumeCircleAdvancement, advancementDeferred, advancementError, connectionState, reconnect } = useGameStore();
   // "Later" lasts until the next visit to the desk (this mounts with it)
   useEffect(() => { resumeCircleAdvancement(); }, [resumeCircleAdvancement]);
   // selectedPicks: array of up to 2 pick ids
@@ -216,13 +216,16 @@ export function AdvancementModal() {
     if (id === 'add_action') return `+1 ${actionLabel}`;
     if (id === 'gild_action') return `${actionLabel} is now gilded`;
     if (id === 'new_ability') return `New ability: ${detail}`;
-    const drives = detail.split(',').filter(Boolean);
+    // The log's form: the drive capitalized (character.py)
+    const drives = detail.split(',').filter(Boolean).map(d => d.charAt(0).toUpperCase() + d.slice(1));
     if (drives.length === 1) return `+2 ${drives[0]} drive`;
     return `+1 ${drives[0]} and +1 ${drives[1]} drive`;
   };
 
+  // Nothing is sent while the socket is not open (a stale tab: another tab holds the desk)
+  const offline = connectionState !== 'open';
   function handleConfirm() {
-    if (!isReady()) return;
+    if (!isReady() || offline) return;
     const lines = selectedPicks.map(appliedLine);
     for (const id of selectedPicks) {
       if (!applyAdvancement(id, details[id] || '')) return;
@@ -272,7 +275,7 @@ export function AdvancementModal() {
           Circle Advancement
         </h2>
         <p className="font-serif italic text-base text-sepia mb-5">
-          The Illumination track is full: <strong>{MAX_PICKS}</strong> {MAX_PICKS === 1 ? 'advancement' : 'advancements'} for {character?.name || 'your investigator'}.
+          <strong>{MAX_PICKS}</strong> {MAX_PICKS === 1 ? 'advancement' : 'advancements'} for {character?.name || 'your investigator'}.
         </p>
 
         {/* After a reload only the stored circle is left, and its last ability is the new one */}
@@ -472,11 +475,25 @@ export function AdvancementModal() {
         </div>
 
         {/* Held at the foot of the scrolling dialog, so Confirm and Later stay in view on a phone */}
-        <div className="flex gap-3 sticky -bottom-5 sm:-bottom-8 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 px-5 sm:px-8 pt-3 pb-5 sm:pb-8 bg-cream border-t border-ink/15">
+        <div className="flex flex-wrap gap-3 sticky -bottom-5 sm:-bottom-8 -mx-5 sm:-mx-8 -mb-5 sm:-mb-8 px-5 sm:px-8 pt-3 pb-5 sm:pb-8 bg-cream border-t border-ink/15">
+          {offline && (
+            <div role="alert" className="basis-full flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="flex-1 basis-48 font-serif text-base text-oxblood leading-snug">
+                {connectionState === 'replaced' ? 'This desk is open in another tab. Use this tab, then confirm.' : 'The desk is reconnecting. Confirm when it is back.'}
+              </p>
+              {connectionState === 'replaced' && (
+                <button type="button" onClick={() => reconnect()}
+                  className="px-4 py-2 min-h-[44px] whitespace-nowrap text-xs font-sans font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-colors rounded-sm">
+                  Use this tab
+                </button>
+              )}
+            </div>
+          )}
           <button
             onClick={handleConfirm}
             disabled={!isReady()}
-            className="flex-1 py-2 [@media(pointer:coarse)]:min-h-[44px] font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:bg-oxblood rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            aria-disabled={offline || undefined}
+            className={`flex-1 py-2 [@media(pointer:coarse)]:min-h-[44px] font-sans text-xs font-black uppercase tracking-widest bg-oxblood text-cream hover:bg-oxblood rounded-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed ${offline ? 'opacity-40 cursor-not-allowed' : ''}`}
           >
             Confirm Advancement ({selectedPicks.length}/{MAX_PICKS})
           </button>
@@ -502,7 +519,7 @@ export const CircleView = () => {
     circle, character, updateCircle, spendCircleResource, accessSession,
     submitAssignmentReport, circleAdvancement, dismissCircleAdvancement, applyAdvancement,
     circleCreation, respondToRelationship, proposeRelationship,
-    reportDrafts, setReportDraft, reportSending, reportError,
+    reportDrafts, setReportDraft, reportSending, reportError, spendRefusal,
   } = useGameStore();
 
   const isGM = accessSession?.role === 'GM';
@@ -525,6 +542,8 @@ export const CircleView = () => {
   // Reports closed with an amendment kept: the filed ticks and the stamp show, and the
   // draft waits for the reports to reopen
   const showFiled = !!myReport && (!amending || !circle?.reports_open);
+  // A dead sheet is a record: a report filed before the death stays, and no new one is made
+  const noReport = !!character?.is_dead && !myReport;
   // The keys this investigator fulfilled: { 0: bool, ... }. The circle's three questions
   // are the Lightkeeper's to answer once, on their page (playtest, report-questions-tally)
   const keyChecks = showFiled ? (filedResponses.keys_detail || {}) : (draft?.keyChecks || {});
@@ -576,7 +595,7 @@ export const CircleView = () => {
   // Why a player cannot spend now, said once above the buttons (not only in a hover title)
   const spendBlock = isGM ? null
     : character?.is_dead ? 'A dead investigator cannot spend the circle\'s resources.'
-    : !circle?.resources_editable ? 'Spending is locked until the Lightkeeper opens it.'
+    : !circle?.resources_editable ? (circle?.backstory_answers?.spending_paused ? 'Spending is closed until the next assignment starts.' : 'Spending is locked until the Lightkeeper opens it.')
     : (character?.resources_spent_assignment || 0) >= 2 ? 'You have spent both of your two this assignment.'
     : null;
   function handleResourceClick(key, pipIndex, avail, event) {
@@ -608,7 +627,39 @@ export const CircleView = () => {
   // line under each button keeps its space, so nothing moves under the finger as it arms or
   // disarms. A press on another resource asks about that one.
   // The ask is one short sentence and the armed button one verb (decision 4 of fix round 5)
-  const spendAsk = (label) => `Press again to spend 1 ${label} for the circle.`;
+  // Stitch clears marks: with none to clear, the ask says so (nothing is blocked)
+  const noMarks = !(character?.body_marks || 0) && !(character?.brain_marks || 0) && !(character?.bleed_marks || 0);
+  const spendAsk = (label) => (label === 'Stitch' && noMarks
+    ? 'No marks to clear. Press again to spend it anyway.'
+    : `Press again to spend 1 ${label} for the circle.`);
+  // Said when the spend lands (the circle's count drops), and why a refused one did not
+  const spentKey = useRef(null);
+  const lastCounts = useRef(null);
+  const [spentNote, setSpentNote] = useState('');
+  useEffect(() => {
+    const now = { stitch: circle?.stitch, refresh: circle?.refresh, train: circle?.train };
+    const before = lastCounts.current;
+    lastCounts.current = now;
+    const key = spentKey.current;
+    if (key && before && before[key] != null && now[key] != null && now[key] < before[key]) {
+      spentKey.current = null;
+      setSpentNote(`Spent 1 ${RESOURCES.find(r => r.key === key)?.label}.`);
+    }
+  }, [circle?.stitch, circle?.refresh, circle?.train]);
+  useEffect(() => {
+    if (!spentNote) return undefined;
+    const t = setTimeout(() => setSpentNote(''), 6000);
+    return () => clearTimeout(t);
+  }, [spentNote]);
+  const [refusalShown, setRefusalShown] = useState(false);
+  useEffect(() => {
+    if (!spendRefusal?.detail) return undefined;
+    setRefusalShown(true);
+    setSpentNote('');
+    spentKey.current = null;
+    const t = setTimeout(() => setRefusalShown(false), 8000);
+    return () => clearTimeout(t);
+  }, [spendRefusal]);
   const [confirmKey, setConfirmKey] = useState(null);
   useEffect(() => {
     if (!confirmKey) return undefined;
@@ -638,6 +689,9 @@ export const CircleView = () => {
     setTimeout(() => { spendHeld.current = false; }, SPEND_GAP_MS);
     lastSpendAt.current = Date.now();
     setConfirmKey(null);
+    setRefusalShown(false);
+    spentKey.current = key;
+    setTimeout(() => { if (spentKey.current === key) spentKey.current = null; }, 5000);
     spendCircleResource(key);
   }
 
@@ -721,7 +775,7 @@ export const CircleView = () => {
 
         {/* Illumination Tracker */}
         <div className="mt-3 pt-3 border-t border-ink/10">
-          <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
+          <h3 aria-label={`Illumination ${Math.min(illum, TRACK_SIZE)} of ${TRACK_SIZE}`} className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
             <InfoTerm label="Illumination" text="The gold-ringed pips are milestones (3, 6 and 9); the track fills at 12. A milestone matters only to a circle with Resource Management." />
             <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">{Math.min(illum, TRACK_SIZE)} / {TRACK_SIZE}{illum > TRACK_SIZE ? ` (+${illum - TRACK_SIZE} carried over)` : ''}</span>
@@ -772,12 +826,12 @@ export const CircleView = () => {
             ))}
           </ol>
           <p className="font-serif text-xs text-sepia leading-snug mt-1.5">
-            The circle answers these together, and the Lightkeeper marks them. {showFiled ? 'Your report is filed; the boxes show the keys you ticked.' : 'Below, tick the keys you fulfilled.'}
+            The circle answers these together, and the Lightkeeper marks them. {showFiled ? 'Your report is filed; the boxes show the keys you ticked.' : noReport ? '' : 'Below, tick the keys you fulfilled.'}
           </p>
         </div>
 
         {/* Illumination Keys — individual checkboxes */}
-        {myKeys.length > 0 && (
+        {myKeys.length > 0 && !noReport && (
           <div className="border-t border-ink/10 pt-2.5 mb-3">
             <span className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1.5">
               {/* The slip opens above the heading, over the intro text: under it, it lay
@@ -809,7 +863,7 @@ export const CircleView = () => {
             <p className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-1">What happened</p>
             <p className="font-serif text-sm italic leading-snug text-ink break-words">"{myReport.note}"</p>
           </div>
-        )) : (
+        )) : !noReport && (
           <div className="mb-3">
             <label htmlFor="circle-report-note" className="font-sans text-xs font-black uppercase tracking-widest text-sepia block mb-1">
               What happened <span className="font-bold normal-case tracking-normal text-sepia/80">(a line, optional)</span>
@@ -849,13 +903,15 @@ export const CircleView = () => {
                 <span className="sr-only">Report sent to the Lightkeeper. The boxes show what you filed.</span>
                 <DateStamp label="Report sent" date={stampDate(myReport.submitted_at)} tone="green" tilt={-2} />
               </span>
-              {circle?.reports_open && (
+              {circle?.reports_open && !character?.is_dead && (
                 <button type="button" onClick={startAmending}
                   className="pen-host min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-1 font-sans text-xs font-black uppercase tracking-widest text-sepia hover:text-ink">
                   <span className="pen-underline">Amend</span>
                 </button>
               )}
             </>
+          ) : noReport ? (
+            <span className="font-serif text-sm italic leading-snug text-sepia">A dead investigator files no report.</span>
           ) : (
             <>
               <span className="font-sans font-bold text-xs text-sepia uppercase tracking-wider">
@@ -893,7 +949,7 @@ export const CircleView = () => {
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-ink/25 pb-1 mb-2.5">
           <h3 id="circle-resources-title" className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-1.5">
             <SafeIcon name="GiScrollUnfurled" size={14} className="text-oxblood" />
-            <InfoTerm label="Circle Resources" text={refillRule(maxCap, (circle?.circle_ability || '').split('\n'))} />
+            <InfoTerm label="Circle Resources" text={`${refillRule(maxCap, (circle?.circle_ability || '').split('\n'))} Spending closes when an assignment ends and opens again with the next assignment's dispatch.`} />
           </h3>
           {/* Where spending stands: locked by the GM, or how many of this assignment's two are used */}
           <span className="font-sans text-xs font-bold uppercase tracking-wider text-sepia">
@@ -917,7 +973,16 @@ export const CircleView = () => {
         )}
         {/* The question is said under the button it asks about (above them all, it pushed
             the buttons down as it came, so a double-click's second press missed) */}
-        {!isGM && <span role="status" className="sr-only">{confirmKey ? spendAsk(RESOURCES.find(r => r.key === confirmKey)?.label || '') : ''}</span>}
+        {!isGM && <span role="status" className="sr-only">{confirmKey ? spendAsk(RESOURCES.find(r => r.key === confirmKey)?.label || '') : spentNote}</span>}
+        {!isGM && spentNote && <p aria-hidden="true" className="mb-2 font-serif text-sm italic leading-snug text-ink">{spentNote}</p>}
+        {!isGM && refusalShown && spendRefusal?.detail && (
+          <p role="alert" className="mb-2 font-serif text-sm italic leading-snug text-oxblood">{spendRefusal.detail}</p>
+        )}
+        {!isGM && character?.train_bonus && (
+          <p className="mb-2 font-serif text-sm leading-snug text-ink">
+            {(character.train_dice || 1) > 1 ? `${character.train_dice} Train dice held.` : 'Train die held.'}
+          </p>
+        )}
         <div className="divide-y divide-dashed divide-sepia/35">
           {RESOURCES.map(({ label, key, desc }) => {
             const avail = circle?.[key] ?? maxCap;
