@@ -1293,19 +1293,21 @@ def test_fourth_scar_kills(client):
 
 
 def test_revive_character(client):
+    """Only the Lightkeeper revives (fix round 8, decision 4): the line names her."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, body_marks=2, brain_marks=1, bleed_marks=3, incapacitated=True)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
-        ws.send("revive_character")
-        msgs = ws.sync()
+        gm.send("revive_character", character_id=ch["id"])
+        desk = gm.sync()
+        msgs = ws.drain()
         assert support.types(msgs) == ["character_update", "activity_log", "member_status"]
         p = msgs[0]["payload"]
         # Fixed (RULES_CHECK 9): only incapacitated clears; the other tracks keep their marks
         assert (p["body_marks"], p["brain_marks"], p["bleed_marks"], p["incapacitated"]) == (2, 1, 3, False)
         assert p["is_dead"] is False
-        assert msgs[1]["payload"] == {"message": f"{ch['name']} has been revived and is operational.",
+        assert msgs[1]["payload"] == {"message": f"The Lightkeeper revived {ch['name']}.",
                                       "log_type": "field", "ink_color": engine.INK_COLORS[0]}
-        assert gm.drain() == [{"type": "member_update", "payload": p}, msgs[1]]
+        assert desk == [{"type": "member_update", "payload": p}, msgs[1]]
 
 
 
@@ -1319,7 +1321,7 @@ def test_a_second_revive_does_nothing(client):
         gm.send("revive_character", character_id=ch["id"])
         gm.send("revive_character", character_id=ch["id"])
         lines = [m for m in gm.sync() if m["type"] == "activity_log"]
-        assert [m["payload"]["message"] for m in lines] == [f"{ch['name']} has been revived and is operational."]
+        assert [m["payload"]["message"] for m in lines] == [f"The Lightkeeper revived {ch['name']}."]
         assert support.types(ws.drain()) == ["character_update", "activity_log", "member_status"]
     assert support.fetch(Character, ch["id"]).incapacitated is False
 

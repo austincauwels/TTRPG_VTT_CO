@@ -16,7 +16,7 @@ from engine import (
 )
 from models import INCLUDE_DELETED, Campaign, Character, Circle, CircleVote, Relationship, User
 from vtt import deletion
-from vtt.assignment import drop_report, release_from_campaign
+from vtt.assignment import drop_report, keep_departed_spends, release_from_campaign, take_departed_spends
 from vtt.auth import (
     campaign_or_404, character_or_404, forbidden, get_current_user, require_gm,
     require_gm_of_character, require_gm_or_member, require_owner, require_owner_or_gm, require_self,
@@ -25,7 +25,7 @@ from vtt.circle_queries import fill_resources, lower_resources_to_pool, relation
 from vtt.config import _ALLOWED_CAMPAIGN_CODE_RE, _SAFE_FONT_NAMES
 from vtt.db import get_db, releases_locks_on_error
 from vtt.schemas import CharacterRosterItem, InviteRejoinRequest, RejoinRequest, RosterResponse
-from vtt.serializers import awaiting_scar, fallen_card, get_char_dict, get_circle_dict
+from vtt.serializers import fallen_card, get_char_dict, get_circle_dict, held_marks
 from vtt.ws.access import CLOSE_NOT_FOUND
 from vtt.ws.handlers.marks import forget_points
 from vtt.ws.manager import campaign_key, character_key, log_line, manager
@@ -197,6 +197,10 @@ async def approve_character(character_id: int, db: Session = Depends(get_db),
         raise HTTPException(status_code=400, detail=result["error"])
     # Broadcast to all connected clients so popup relationship matrices update live
     char = db.query(Character).filter(Character.id == character_id).first()
+    if char and char.let_in and manager.active_connections.get(character_key(character_id)):
+        # Its desk is open already (waiting there), so it plays at once: no Let in mark
+        char.let_in = False
+        db.commit()
     if char and char.campaign_id:
         campaign = db.query(Campaign).filter(Campaign.id == char.campaign_id).first()
         active = db.query(Character).filter(
@@ -382,6 +386,10 @@ async def release_member(character_id: int, db: Session = Depends(get_db),
     char.status = "unaffiliated"
     char.campaign_id = None
     char.ink_color = ""
+    char.let_in = False
+    # The spends of this assignment stay with the circle, for a return before its end
+    if circle is not None:
+        keep_departed_spends(circle, char)
     # as at Retire: no spends, uses, gear or Train dice carried into another campaign
     release_from_campaign(char)
     if circle is not None:
@@ -531,11 +539,16 @@ def rejoin(db: Session, campaign_code: str, character_id: int, user: User):
     new_char.ink_color = INK_COLORS[active_count % len(INK_COLORS)]
     new_char.status = "active"
     new_char.sheet_edited = False   # a dot from before the rejoin has no line in this log
+    new_char.let_in = True          # the registry's Let in mark, until the desk opens
 
     # Attach to campaign's circle so relationship proposals work mid-campaign
-    campaign_circle = db.query(Circle).filter(Circle.campaign_id == campaign.id).first()
+    campaign_circle = db.query(Circle).filter(Circle.campaign_id == campaign.id) \
+        .populate_existing().with_for_update().first()
     if campaign_circle:
         new_char.circle_id = campaign_circle.id
+        # and keep the spends a member who left in this assignment took with them
+        new_char.resources_spent_assignment = max(
+            new_char.resources_spent_assignment or 0, take_departed_spends(campaign_circle, new_char))
 
     # Clear any pending rejoin invite for this user, in the same transaction
     user.pending_rejoin_campaign_id = None
@@ -668,8 +681,8 @@ def get_roster(campaign_id: int, db: Session = Depends(get_db), user: User = Dep
         if is_lk:
             stands.update(
                 body_marks=c.body_marks or 0, brain_marks=c.brain_marks or 0, bleed_marks=c.bleed_marks or 0,
-                advancement_picks=c.advancement_picks or 0, scar_pending=c.id in awaiting_scar,
-                sheet_edited=bool(c.sheet_edited))
+                advancement_picks=c.advancement_picks or 0, scar_pending=bool(c.scar_pending),
+                sheet_edited=bool(c.sheet_edited), held_marks=held_marks(c))
         return CharacterRosterItem(
             **stands,
             owner_username=owners.get(c.user_id, ""),

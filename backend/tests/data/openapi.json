@@ -736,6 +736,18 @@
             ],
             "title": "Circle Name"
           },
+          "held_marks": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Held Marks"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -1059,6 +1071,11 @@
             "title": "Is Dead",
             "type": "boolean"
           },
+          "let_in": {
+            "default": false,
+            "title": "Let In",
+            "type": "boolean"
+          },
           "move": {
             "default": 0,
             "title": "Move",
@@ -1273,6 +1290,11 @@
           "is_dead": {
             "default": false,
             "title": "Is Dead",
+            "type": "boolean"
+          },
+          "let_in": {
+            "default": false,
+            "title": "Let In",
             "type": "boolean"
           },
           "name": {

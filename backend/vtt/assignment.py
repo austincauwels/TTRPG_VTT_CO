@@ -4,7 +4,8 @@ They live in the circle's backstory_answers JSON (where the reports always were)
 "reports" ({character id: {character_name, responses, submitted_at, and note when the
 report has a line on what happened}}), with
 "assignment", the number of the assignment they belong to (1 until the first End
-Assignment), and "tally", the Lightkeeper's three answers to the circle's questions and
+Assignment), "departed_spends", the circle spends of this assignment that members who left
+took with them ({player key: count}, keep_departed_spends), and "tally", the Lightkeeper's three answers to the circle's questions and
 the Illumination the reports added ({answers: [bool, bool, bool], added: int or None}),
 kept here so every desk sees the tally added once (playtest, illumination-tally-added-twice:
 it lived in one browser, and a second tab added it again). End Assignment closes the
@@ -18,7 +19,7 @@ report).
 """
 import json
 
-REPORTS, ASSIGNMENT, TALLY = "reports", "assignment", "tally"
+REPORTS, ASSIGNMENT, TALLY, DEPARTED = "reports", "assignment", "tally", "departed_spends"
 
 
 def answers_of(circle) -> dict:
@@ -40,7 +41,9 @@ def reports_of(answers: dict) -> dict:
 
 
 def without_reports(answers: dict) -> dict:
-    return {key: value for key, value in answers.items() if key != REPORTS}
+    """The answers the circle's frames carry: no reports, and no leavers' spend counts,
+    which are the server's alone."""
+    return {key: value for key, value in answers.items() if key not in (REPORTS, DEPARTED)}
 
 
 def assignment_number(answers: dict) -> int:
@@ -63,6 +66,7 @@ def clear_paperwork(circle):
     answers = answers_of(circle)
     answers.pop(REPORTS, None)
     answers.pop(TALLY, None)
+    answers.pop(DEPARTED, None)
     answers[ASSIGNMENT] = assignment_number(answers) + 1
     circle.backstory_answers = answers
     circle.reports_open = False
@@ -78,6 +82,48 @@ def drop_report(circle, character_id) -> bool:
     answers[REPORTS] = reports
     circle.backstory_answers = answers
     return True
+
+
+def _player_key(character) -> str:
+    """Whose spends: the player's, as a replacement carries its predecessor's (#41); a
+    character with no player is its own."""
+    return str(character.user_id) if getattr(character, "user_id", None) else f"c{character.id}"
+
+
+def _departed(answers: dict) -> dict:
+    raw = answers.get(DEPARTED)
+    return {k: v for k, v in raw.items() if type(v) is int and v > 0} if isinstance(raw, dict) else {}
+
+
+def keep_departed_spends(circle, character):
+    """A member leaving the circle (released, or leaving it themselves) leaves their circle
+    spends of this assignment on it, so coming back in the same assignment does not bring
+    a fresh two (fix round 8, decision 3). End Assignment clears them (clear_paperwork)."""
+    count = getattr(character, "resources_spent_assignment", 0) or 0
+    if count <= 0:
+        return
+    answers = answers_of(circle)
+    kept = _departed(answers)
+    key = _player_key(character)
+    kept[key] = max(count, kept.get(key, 0))
+    answers[DEPARTED] = kept
+    circle.backstory_answers = answers
+
+
+def take_departed_spends(circle, character) -> int:
+    """The spends of this assignment the character's player left with, taken off the
+    circle when they come back (an approval or a rejoin); 0 when they left none."""
+    answers = answers_of(circle)
+    kept = _departed(answers)
+    count = kept.pop(_player_key(character), 0)
+    if not count:
+        return 0
+    if kept:
+        answers[DEPARTED] = kept
+    else:
+        answers.pop(DEPARTED, None)
+    circle.backstory_answers = answers
+    return count
 
 
 def end_assignment_for(character):

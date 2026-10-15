@@ -300,6 +300,13 @@ class Character(SoftDeleted, Base):
     # The mark_ids of the last marks the player's desk sent (take_mark), so a mark sent
     # again after a silent socket, a reload or a restart is taken once (marks.py)
     taken_mark_ids = Column(JSON, default=list)
+    # A fourth mark asked for a scar that is not yet recorded (apply_scar or the death
+    # clears it). Kept here, not in memory, so the owed scar survives a restart (#72).
+    scar_pending = Column(Boolean, default=False)
+    # Let in by the Lightkeeper (an approval or a rejoin) and not yet played: the Let in
+    # mark on the player's registry, in every browser, until the character's own desk
+    # opens in the campaign (vtt/ws/endpoint.py)
+    let_in = Column(Boolean, default=False)
 
     # Status
     incapacitated = Column(Boolean, default=False)

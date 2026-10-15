@@ -7,13 +7,13 @@ from engine import ALL_ACTIONS, apply_advancement
 from models import Character, Circle
 from vtt.abilities import GEARED_UP_SLOT, ONE_STEP_AHEAD, WARD, count_use, has_ability, resistance_left, uses_of
 from vtt.ability_uses import ABILITY_USES, DRIVES, QUESTION_MAX, SCAR_ABILITIES, clean_question
-from vtt.circle_queries import RESOURCES, cap_earn_backs, circle_abilities
+from vtt.circle_queries import (RESOURCES, cap_earn_backs, circle_abilities, fill_resources,
+                                lower_resources_to_pool, resource_pool)
 from vtt.config import _SAFE_FONT_NAMES
 from vtt.creation import ACTION_LABELS
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.sheet_edits import apply_edit, gear_change
 from vtt.ws.access import scar_ability
-from vtt.serializers import awaiting_scar
 from vtt.ws.handlers.circle import announce_downed, announce_status
 from vtt.ws.handlers.marks import close_offers_at_death, drop_held_at_death
 from vtt.ws.manager import character_key, manager
@@ -108,7 +108,7 @@ async def handle_apply_scar(ctx):
     # Assign a fresh list so SQLAlchemy detects the mutation
     character.scars_list = existing
     character.scars_count = len(existing)
-    awaiting_scar.discard(character.id)
+    character.scar_pending = False
     was_dead = bool(character.is_dead)
     if character.scars_count >= 4:
         character.is_dead = True
@@ -131,6 +131,11 @@ async def handle_apply_scar(ctx):
         if getattr(character, down) > 0 and getattr(character, up) < 3:
             setattr(character, down, getattr(character, down) - 1)
             setattr(character, up, getattr(character, up) + 1)
+    # The dead are no member to count (resource_pool): the circle's Stitch, Refresh and
+    # Train come down to the new 1 plus members at once, exactly as at a release (fix
+    # round 8, decision 1). Nothing goes up later, when the death is lifted or the
+    # replacement approved.
+    circle = _circle_at_death(ctx, character) if character.is_dead and not was_dead else None
     db.commit()
     await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
     if character.is_dead and not was_dead:
@@ -141,6 +146,15 @@ async def handle_apply_scar(ctx):
             "payload": {"message": f"{character.name} is deceased: a fourth scar.", "log_type": "danger",
                         "ink_color": getattr(character, "ink_color", "") or ""},
         }, db)
+        if circle is not None:
+            # Every desk's circle reads the new maximum, whether or not a pool came down
+            await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
+                "type": "circle_update", "payload": get_circle_dict(circle)}, db)
+            await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
+                "type": "activity_log",
+                "payload": {"message": f"Stitch, Refresh and Train now hold at most {resource_pool(circle, db)} each.",
+                            "log_type": "field", "ink_color": ""},
+            }, db)
     # The players' circle cards follow the scar count, the fall and the death
     await announce_status(ctx, character)
     if character.is_dead:
@@ -163,6 +177,24 @@ async def handle_apply_scar(ctx):
         }, db)
 
 
+def _circle_at_death(ctx, character):
+    """The campaign's circle, locked until the commit, with each resource lowered to the
+    pool without the one who dies (filled to it before the seal, as an approval or a
+    release fills it), or None for a character outside a campaign."""
+    if not ctx.camp_id or character.status != "active" or character.campaign_id != ctx.camp_id:
+        return None
+    circle = ctx.db.query(Circle).filter(Circle.campaign_id == ctx.camp_id) \
+        .populate_existing().with_for_update().first()
+    if circle is None:
+        return None
+    ctx.db.flush()
+    if circle.is_finalized:
+        lower_resources_to_pool(circle, ctx.db)
+    else:
+        fill_resources(circle, ctx.db)
+    return circle
+
+
 async def handle_revive_character(ctx):
     db, character, channel, camp_code, camp_id = ctx.db, ctx.character, ctx.channel, ctx.camp_code, ctx.camp_id
     # Back on their feet once the circle gets them somewhere safe (rulebook p. 14). The
@@ -180,7 +212,7 @@ async def handle_revive_character(ctx):
     await manager.broadcast_campaign(camp_code, camp_id, {
         "type": "activity_log",
         "payload": {
-            "message": f"{character.name} has been revived and is operational.",
+            "message": f"The Lightkeeper revived {character.name}.",
             "log_type": "field",
             "ink_color": getattr(character, "ink_color", "") or "",
         }

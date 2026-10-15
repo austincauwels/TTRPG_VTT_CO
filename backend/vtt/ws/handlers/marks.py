@@ -68,7 +68,7 @@ from sqlalchemy import or_
 
 from models import Character
 from vtt.abilities import MARK_TYPES, WARD, abilities_of, count_use, resistance_left, spend_use, uses_of
-from vtt.serializers import awaiting_scar, get_char_dict
+from vtt.serializers import get_char_dict
 from vtt.ws.handlers.circle import announce_downed, announce_status
 from vtt.ws.manager import campaign_key, character_key, manager
 
@@ -294,8 +294,8 @@ async def apply_mark(ctx, character, m_type, channel, offer_intercepts=True, ann
         already_down = bool(character.incapacitated)
         setattr(character, f"{m_type}_marks", 0)
         character.incapacitated = True
+        character.scar_pending = True
         db.commit()
-        awaiting_scar.add(character.id)
         await manager.broadcast(channel, {"type": "trigger_scar", "payload": {
             "character_id": character.id, "mark_type": m_type, "character": get_char_dict(character)}})
         # Marks that land on one already down are another scar, not another fall

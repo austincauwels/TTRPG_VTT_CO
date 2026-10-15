@@ -12,7 +12,7 @@ from engine import ALL_ACTIONS
 from models import Campaign, Character, Circle, Relationship
 from vtt.abilities import MARK_TYPES, abilities_of, uses_of
 from vtt.ability_uses import SCAR_ABILITIES
-from vtt.assignment import ASSIGNMENT, REPORTS, TALLY
+from vtt.assignment import ASSIGNMENT, DEPARTED, REPORTS, TALLY
 from vtt.auth import MEMBER_STATUSES, NOT_ALLOWED, ROSTER_STATUSES, campaign_facts, character_facts
 from vtt.circle_queries import VOTE_TYPES
 
@@ -268,7 +268,7 @@ def _circle_creation_vote(ctx, payload, character):
 # The circle's paperwork and the question the vote chose share backstory_answers with the
 # members' answers; only their own messages write them (the tally's added flag is what
 # stops a second add)
-RESERVED_ANSWERS = frozenset({REPORTS, ASSIGNMENT, TALLY, "selected_question_key"})
+RESERVED_ANSWERS = frozenset({REPORTS, ASSIGNMENT, TALLY, DEPARTED, "selected_question_key"})
 
 
 def _circle_backstory_update(ctx, payload, character):
@@ -547,12 +547,12 @@ def _still_in_connect_campaign(ctx):
 # What a dead investigator's own socket may no longer do: the sheet is a record once the
 # fourth scar is taken (p. 74). Chat, the notebook, the pen font and a new investigator stay.
 # A direct edit (edit_sheet) is refused too: a dead sheet stays a record (fix round 4), and
-# so is a fifth scar (fix round 6).
+# so is a fifth scar (fix round 6), and a new or amended assignment report (fix round 8).
 DEAD_REFUSED = frozenset({
     "roll", "resolve_gilded", "use_post_roll_ability", "burn_resistance", "take_mark",
     "resolve_ability_mark", "intercept_mark", "spend_resource", "update_drive", "update_gear",
     "apply_advancement", "use_ability", "circle_relationship_propose", "revive_character", "edit_sheet",
-    "apply_scar",
+    "apply_scar", "submit_assignment_report",
 })
 
 
@@ -573,6 +573,16 @@ def _dead_sheet(ctx, action, character):
         raise Rejected(409, f"{character.name} is dead: the sheet is a record.")
 
 
+REVIVE_IS_THE_LIGHTKEEPERS = "Only the Lightkeeper revives an investigator."
+
+
+def _revive(ctx, action):
+    """Only the Lightkeeper revives an investigator (fix round 8, decision 4): back on
+    their feet once the circle gets them somewhere safe, which is hers to say."""
+    if action == "revive_character" and not ctx.is_gm:
+        raise Rejected(403, REVIVE_IS_THE_LIGHTKEEPERS)
+
+
 def check_message(ctx, action, payload, character):
     if ctx.is_gm and campaign_facts(ctx.db, ctx.camp_id) is None:
         # The campaign was deleted while its GM's socket was open. Deleting it closes
@@ -581,6 +591,7 @@ def check_message(ctx, action, payload, character):
     if not ctx.is_gm and ctx.camp_id is not None and action in PLAYER_CAMPAIGN_BROADCASTS:
         _still_in_connect_campaign(ctx)
     _dead_sheet(ctx, action, character)
+    _revive(ctx, action)
     rule = RULES.get(action)
     if rule is not None:
         rule(ctx, payload, character)

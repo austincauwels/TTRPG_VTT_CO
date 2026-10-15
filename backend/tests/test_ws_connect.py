@@ -257,16 +257,16 @@ def test_bad_json_and_unknown_types_are_ignored(client):
 
 
 def test_frame_without_payload_works(client):
-    ch = support.forge(client, body_marks=2, bleed_marks=1, incapacitated=True)
-    with support.ws_connect(client, ch["id"]) as ws:
-        ws.send_text(json.dumps({"type": "revive_character"}))
+    # The Lightkeeper's refill needs nothing in its payload (a player's revive did, until
+    # only the Lightkeeper could revive: fix round 8, decision 4)
+    camp = support.new_campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as ws:
+        cid = ws.initial[0]["payload"]["id"]
+        support.update(Circle, cid, stitch=0)
+        ws.send_text(json.dumps({"type": "refill_resources"}))
         msg = ws.recv()
-        assert msg["type"] == "character_update"
-        p = msg["payload"]
-        # Revive clears incapacitated only (RULES_CHECK.md item 9)
-        assert (p["id"], p["body_marks"], p["bleed_marks"], p["incapacitated"]) == (ch["id"], 2, 1, False)
-    row = support.fetch(Character, ch["id"])
-    assert (row.body_marks, row.bleed_marks, row.incapacitated) == (2, 1, False)
+        assert (msg["type"], msg["payload"]["stitch"]) == ("circle_update", 1)
+    assert support.fetch(Circle, cid).stitch == 1
 
 
 @pytest.mark.parametrize("frame", ['[1, 2]', '"text"', '7', 'null', '{"type": "no_such_action", "payload": [1]}'])
@@ -297,10 +297,12 @@ def test_non_object_payload_is_rejected(client, payload):
 
 
 def test_null_payload_is_an_empty_one(client):
-    ch = support.forge(client, body_marks=2, incapacitated=True)
-    with support.ws_connect(client, ch["id"]) as ws:
-        ws.send_text(json.dumps({"type": "revive_character", "payload": None}))
-        assert ws.recv()["payload"]["incapacitated"] is False
+    camp = support.new_campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as ws:
+        cid = ws.initial[0]["payload"]["id"]
+        support.update(Circle, cid, stitch=0)
+        ws.send_text(json.dumps({"type": "refill_resources", "payload": None}))
+        assert ws.recv()["payload"]["stitch"] == 1
 
 
 def test_disconnect_removes_socket_but_keeps_key(client):
