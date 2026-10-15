@@ -202,7 +202,8 @@ def test_keeping_the_regular_die_names_it(client, dice):
 def test_a_kept_die_shows_dice_once(client, dice):
     """The held dice are the roll's: a second resolve, or a resolve after a newer roll,
     is refused (no roll is waiting) and tells the table nothing. (Each roll's sheet
-    reaches the GM as member_update; the dice are what this pins.)"""
+    reaches the GM as member_update; the dice are what this pins.) Since fix round 8
+    (#80) a roll while the die waits is refused itself: it used to replace the held roll."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, move=2, gilded_move=True, strike=1, nerve_max=3)
     dice(3, 5)
@@ -214,11 +215,17 @@ def test_a_kept_die_shows_dice_once(client, dice):
         assert support.types(gm.drain()) == ["member_update", "dice_thrown", "activity_log", "member_update"]
         dice(3, 5)
         ws.send("roll", action="move", drive_spent=0)
+        ws.send("roll", action="strike", drive_spent=0)
+        msgs = ws.sync()
+        assert support.types(msgs) == ["roll_result", "action_rejected"]
+        assert msgs[1]["payload"] == {"action": "roll", "status": 409, "detail": "Keep a die from your last roll first."}
+        ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=5)
         dice(2)
         ws.send("roll", action="strike", drive_spent=0)
         ws.send("resolve_gilded", action="move", chosen_type="regular", chosen_value=5)
         assert support.types(ws.sync())[-1] == "action_rejected"
-        assert support.types(gm.drain()) == ["member_update", "member_update", "dice_thrown", "activity_log"]
+        assert support.types(gm.drain()) == ["member_update", "dice_thrown", "activity_log",
+                                             "member_update", "dice_thrown", "activity_log"]
 
 
 def test_a_secret_roll_shows_no_dice(client, dice):
@@ -530,7 +537,7 @@ def test_lightkeeper_roll_on_gm_socket(client, dice):
         assert msgs[0]["payload"] == {"character_id": None, "action": "lk", "character": None, "roll": {
             "type": "standard", "dice": _d(1, 4), "result": 4, "outcome": "mixed_success",
             "needs_gilded_choice": False, "drive_spent_key": None, "action": "lk"}}
-        assert msgs[1]["payload"] == {"message": f"Lightkeeper rolled {EM} 4 {DOT} Mixed Success (2 dice: 1, 4).",
+        assert msgs[1]["payload"] == {"message": f"The Lightkeeper rolled {EM} 4 {DOT} Mixed Success (2 dice: 1, 4).",
                                       "log_type": "roll", "ink_color": ""}
         seen = wm.drain()
         assert support.types(seen) == ["dice_thrown", "activity_log"]
@@ -556,7 +563,7 @@ def test_a_lightkeeper_secret_roll_reaches_her_desk_alone(client, dice):
         assert support.types(msgs) == ["roll_result", "activity_log"]
         assert msgs[0]["payload"]["character_id"] is None
         assert msgs[0]["payload"]["roll"]["is_secret"] is True
-        assert msgs[1]["payload"] == {"message": f"(Secret) Lightkeeper rolled {EM} 6 {DOT} Full Success (2 dice: 2, 6).",
+        assert msgs[1]["payload"] == {"message": f"(Secret) The Lightkeeper rolled {EM} 6 {DOT} Full Success (2 dice: 2, 6).",
                                       "log_type": "roll", "ink_color": "", "is_secret": True}
         gm.send("roll", action="Lightkeeper", drive_spent=2, is_secret=True, roll_id="lk-1")
         assert gm.sync() == [msgs[0]]
@@ -594,7 +601,7 @@ def test_a_secret_line_is_kept_for_the_lightkeepers_desk_alone(client, dice):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         entries = gm.recv_type("activity_history")["payload"]["entries"]
         assert [(e["message"], e.get("is_secret")) for e in entries] == [
-            (f"(Secret) Lightkeeper rolled {EM} 3 {DOT} Failure (1 die: 3).", True),
+            (f"(Secret) The Lightkeeper rolled {EM} 3 {DOT} Failure (1 die: 3).", True),
             (f"{a['name']}: hello", None)]
     stored = support.stored_lines(camp["id"])
     holders = {key for keys, line in stored if line.get("is_secret") for key in keys}

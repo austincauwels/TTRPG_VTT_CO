@@ -162,10 +162,11 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
         elif is_gm and campaign is not None:
             await send_felt_roll(websocket, campaign.id)
         # The Activity Log lines this channel was sent lately, so the desk's log is whole
-        # again after a reload or a drop (sent only when there are some)
+        # again after a reload or a drop. Sent on every connect, empty too, as the last of
+        # the connect frames: a desk that showed an open roll and was not sent it again
+        # above knows by then that the server holds it no longer (a restart, #78)
         history = manager.history_for(channel, camp_id)
-        if history:
-            await websocket.send_json({"type": "activity_history", "payload": {"entries": history}})
+        await websocket.send_json({"type": "activity_history", "payload": {"entries": history}})
 
         ctx = WSContext(game_id=game_id, db=db, circle=circle, camp_code=camp_code, camp_id=camp_id,
                         user_id=user_id, is_gm=is_gm, own_char_id=own_char_id, channel=channel)
