@@ -81,6 +81,29 @@ def test_a_roll_is_refused_while_a_gilded_die_waits(client, dice):
     assert (row.nerve_current, row.cunning_current) == (3, 2)
 
 
+# --- #86: the Lightkeeper's felt says whether a player's roll is open -----------------------
+
+def test_the_felt_roll_sent_again_says_when_its_burn_is_closed(client, dice):
+    """#86: the Lightkeeper's felt stamps a player's roll "Burn open" while its player can
+    still burn on it. Her desk that opens again is sent that roll (#40); it carries
+    settled: true once the table has moved past it (here, End Assignment, after which the
+    felt keeps the roll, decisions_run4), so the stamp does not come back on a reload."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=6)
+    with support.ws_connect(client, a["id"]) as wa:
+        dice(2)
+        wa.send("roll", action="move", drive_spent=0)
+        wa.sync()
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        [thrown] = support.of_type(gm.sync(), "dice_thrown")
+        assert thrown["payload"]["replayed"] is True and "settled" not in thrown["payload"]
+        gm.send("gm_end_assignment")
+        gm.sync()
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        [thrown] = support.of_type(gm.sync(), "dice_thrown")
+        assert thrown["payload"]["settled"] is True and thrown["payload"]["character_id"] == a["id"]
+
+
 # --- #81: a mark dealt to a closed desk beside a stored hold -------------------------------------
 
 def test_a_mark_dealt_to_a_closed_desk_lands_the_held_one_first(client):

@@ -38,7 +38,7 @@ const ABILITY_OFFER_CONFIG = {
   },
   "Non-Combatant": {
     icon: "GiHeartInside",
-    description: (name) => `${name} took a mark. If they have hurt no one this assignment, recover 1 drive point of your choice.`,
+    description: (name, mark) => `${name} took a ${mark}mark. If they have hurt no one this assignment, recover 1 drive point of your choice.`,
     actionType: "drive_refresh",
   },
   "Circle of Protection": {
@@ -58,20 +58,25 @@ const ABILITY_OFFER_CONFIG = {
   },
   "Behind Me": {
     icon: "GiShield",
-    description: (name) => `Take ${name}'s mark instead (spend 1 Nerve).`,
+    description: (name, mark) => `Take ${name}'s ${mark}mark instead (spend 1 Nerve).`,
     actionType: "intercept",
     isIntercept: true,
   },
   "Premonitions": {
     icon: "GiCrystalBall",
-    description: (name) => `Soak ${name}'s mark (burn 1 Intuition resistance).`,
+    description: (name, mark) => `Soak ${name}'s ${mark}mark (burn 1 Intuition resistance).`,
     actionType: "soak",
     isIntercept: true,
   },
 };
 
+const DRIVE_NAMES = { nerve: 'Nerve', cunning: 'Cunning', intuition: 'Intuition' };
+// The mark an ally's offer answers, named on its card ("Finn Ash's Brain mark"; 88.13: two
+// cards in turn read the same while the log named Body and Brain)
+const MARK_NAMES = { body: 'Body ', brain: 'Brain ', bleed: 'Bleed ' };
+
 export const AbilityMarkOffer = () => {
-  const { abilityMarkOffer, resolveAbilityMark, interceptMark, dismissAbilityMarkOffer, declineAbilityMark, interceptRefused } = useGameStore();
+  const { abilityMarkOffer, resolveAbilityMark, interceptMark, dismissAbilityMarkOffer, declineAbilityMark, interceptRefused, character } = useGameStore();
   const [driveChoice, setDriveChoice] = useState(null);
   const [timeLeft, setTimeLeft] = useState(null);
   const [hovered, setHovered] = useState(false);
@@ -132,7 +137,7 @@ export const AbilityMarkOffer = () => {
     if (useGameStore.getState().interceptRefused) useGameStore.setState({ interceptRefused: null });
     const before = document.activeElement;
     if (!isTextEntry(before)) {
-      (primaryRef.current || boxRef.current?.querySelector('button'))?.focus({ preventScroll: true });
+      (primaryRef.current || boxRef.current?.querySelector('button:not(:disabled)'))?.focus({ preventScroll: true });
     }
     const box = boxRef.current;
     return () => {
@@ -188,14 +193,20 @@ export const AbilityMarkOffer = () => {
   // Death Defy names how many marks of the harm it escapes
   const desc = offer.ability === 'Death Defy' && offer.count > 1
     ? `If an enemy dealt these ${offer.count} marks, escape unscathed: you take none of them.`
-    : typeof config.description === 'function' ? config.description(charName) : config.description;
+    : typeof config.description === 'function' ? config.description(charName, MARK_NAMES[offer.mark_type] || '') : config.description;
+  // A drive already full takes nothing back: shown full, and not picked (#79: the server
+  // refuses it). Both drive point offers, Non-Combatant's and Adrenaline Rush
+  const isFull = (d) => !!character && Number(character[`${d}_current`] ?? 0) >= Number(character[`${d}_max`] ?? 0);
+  const allFull = ['nerve', 'cunning', 'intuition'].every(isFull);
+  // A pick whose drive has filled since (a sheet that came meanwhile) is no pick
+  const chosen = driveChoice && !isFull(driveChoice) ? driveChoice : null;
 
   const handleAccept = () => {
     if (config.isIntercept) {
       interceptMark(offer.ability, offer.character_id, offer.mark_type);
     } else if (offer.action === 'drive_refresh') {
-      if (!driveChoice) return;
-      resolveAbilityMark(offer.ability, driveChoice);
+      if (!chosen) return;
+      resolveAbilityMark(offer.ability, chosen);
     } else if (offer.action === 'info') {
       dismissAbilityMarkOffer();
     } else {
@@ -239,21 +250,27 @@ export const AbilityMarkOffer = () => {
 
         <p id={`offer-desc-${offer.seq}`} className="font-serif text-sm text-parchment-deep mb-3 leading-relaxed">{desc}</p>
 
-        {/* Drive picker for Adrenaline Rush */}
+        {/* Drive picker for Adrenaline Rush and Non-Combatant: the drives by their names
+            (88.u14), 44px on touch (#87), a full one shown full */}
         {offer.action === 'drive_refresh' && (
-          <div className="flex gap-1.5 mb-2">
+          <div className="flex gap-1.5 mb-2" role="group" aria-label="Drive to recover">
             {['nerve', 'cunning', 'intuition'].map(d => (
               <button
                 key={d}
+                type="button"
                 onClick={() => setDriveChoice(d)}
+                disabled={isFull(d)}
+                aria-pressed={chosen === d}
+                aria-label={isFull(d) ? `${DRIVE_NAMES[d]}, full` : undefined}
                 className={[
-                  'flex-1 py-1.5 font-sans text-xs font-black uppercase border rounded-sm transition-all',
-                  driveChoice === d
+                  'flex-1 min-w-0 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-1 py-1 font-sans text-xs font-black uppercase border rounded-sm transition-all leading-tight',
+                  chosen === d
                     ? 'border-candle-gold bg-candle-gold/20 text-candle-gold'
-                    : 'border-parchment-deep/30 text-parchment-deep/80 hover:border-parchment-deep/60',
+                    : 'border-parchment-deep/30 text-parchment-deep/80 hover:border-parchment-deep/60 disabled:opacity-45 disabled:hover:border-parchment-deep/30 disabled:cursor-not-allowed',
                 ].join(' ')}
               >
-                {d[0].toUpperCase() + d.slice(1, 3)}
+                {DRIVE_NAMES[d]}
+                {isFull(d) && <span className="block font-serif italic normal-case font-normal text-[11px]">full</span>}
               </button>
             ))}
           </div>
@@ -265,10 +282,12 @@ export const AbilityMarkOffer = () => {
             <button
               ref={offer.action === 'drive_refresh' ? undefined : primaryRef}
               onClick={handleAccept}
-              disabled={offer.action === 'drive_refresh' && !driveChoice}
+              disabled={offer.action === 'drive_refresh' && !chosen}
               className="flex-1 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-oxblood border border-ink text-cream hover:brightness-125 transition rounded-sm disabled:opacity-40"
             >
-              {config.isIntercept ? 'Intercept' : 'Use'}
+              {config.isIntercept ? 'Intercept'
+                : offer.action === 'drive_refresh' && !chosen ? (allFull ? 'Every drive is full' : 'Pick a drive')
+                : 'Use'}
             </button>
           )}
           {offer.action === 'info' && <span className="flex-1" aria-hidden="true" />}

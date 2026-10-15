@@ -4,8 +4,11 @@ import { ACTION_LABEL } from '../../../game/actions';
 import { InfoTerm } from '../../shared/ActionInfo';
 
 const DRIVES = ['nerve', 'cunning', 'intuition'];
-const promptButton = 'px-3 py-0.5 font-sans text-xs font-black uppercase border border-parchment-deep/50 text-parchment-deep hover:bg-parchment-deep/10 rounded-sm transition-all disabled:opacity-40';
-const promptSelect = 'bg-ink border border-parchment-deep/40 text-parchment-deep rounded-sm text-sm font-serif px-1 py-0.5';
+// 44px on a touch screen (#87: Use and Skip were 22px tall there), as they were on a mouse
+const touch = '[@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px]';
+const promptButton = `px-3 py-0.5 ${touch} font-sans text-xs font-black uppercase border border-parchment-deep/50 text-parchment-deep hover:bg-parchment-deep/10 rounded-sm transition-all disabled:opacity-40`;
+const skipButton = `px-2 py-0.5 ${touch} font-sans text-xs font-black uppercase border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream rounded-sm transition-all`;
+const promptSelect = 'bg-ink border border-parchment-deep/40 text-parchment-deep rounded-sm text-sm font-serif px-1 py-0.5 [@media(pointer:coarse)]:min-h-[44px]';
 
 // A post-roll ability used on an ally (Patch Up, Resuscitation): which ally, and for
 // Resuscitation on a 4-5 which 3 drive points pay for it. The server checks the ally.
@@ -37,8 +40,7 @@ const AllyPrompt = ({ prompt, allies, character, onUse, onSkip }) => {
           onClick={() => onUse(prompt.key, { ...prompt.params, target_character_id: Number(ally), ...(prompt.driveSplit ? { cost: split } : {}) })}>
           Use
         </button>
-        <button type="button" onClick={onSkip} aria-label={`Skip ${prompt.key}`}
-          className="px-2 py-0.5 font-sans text-xs font-black uppercase border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream rounded-sm transition-all">
+        <button type="button" onClick={onSkip} aria-label={`Skip ${prompt.key}`} className={skipButton}>
           Skip
         </button>
       </div>
@@ -84,7 +86,9 @@ export const RollModifications = ({
                 </span>
               </p>
               <p className="font-serif text-sm text-parchment-deep mt-0.5">
-                <InfoTerm label={`${action}: ${pool}`} ariaLabel={`${action}: ${pool}, what a reroll throws`}
+                {/* "Reroll: Survey, 2 dice" (decisions8 10): "Survey: 2 dice" read as the
+                    roll's own pool, short of its drive dice */}
+                <InfoTerm label={`Reroll: ${action}, ${pool}`} ariaLabel={`Reroll: ${action}, ${pool}, what it throws`}
                   text="A reroll throws the action rating alone. Drive spent and dice an ability added are not thrown again."
                   slipClassName="left-0 bottom-full mb-1 w-[min(16rem,calc(100vw-2.5rem))]"
                   markClassName="text-parchment-deep group-hover/info:text-cream" />
@@ -114,26 +118,24 @@ export const RollModifications = ({
                 <>
                   {DRIVES.filter(d => (character?.[`${d}_current`] || 0) < (character?.[`${d}_max`] || 0)).map(d => (
                     <button key={d} onClick={() => { usePostRollAbility(prompt.key, { drive: d }); setDrivePickerPrompt(null); setDismissedPrompts(p => [...p, prompt.key]); }}
-                      className="px-2 py-0.5 font-sans text-xs font-black uppercase border border-parchment-deep/50 text-parchment-deep hover:bg-parchment-deep/15 rounded-sm transition-all">
+                      className={`px-2 py-0.5 ${touch} font-sans text-xs font-black uppercase border border-parchment-deep/50 text-parchment-deep hover:bg-parchment-deep/15 rounded-sm transition-all`}>
                       {d[0].toUpperCase() + d.slice(1)}
                     </button>
                   ))}
                 </>
               ) : (
-                <button onClick={() => setDrivePickerPrompt(prompt.key)}
-                  className="px-3 py-0.5 font-sans text-xs font-black uppercase border border-parchment-deep/50 text-parchment-deep hover:bg-parchment-deep/10 rounded-sm transition-all">
+                <button onClick={() => setDrivePickerPrompt(prompt.key)} className={promptButton}>
                   Use
                 </button>
               )
             ) : (
               <button onClick={() => { usePostRollAbility(prompt.key, prompt.params); setDismissedPrompts(p => [...p, prompt.key]); }}
-                className="px-3 py-0.5 font-sans text-xs font-black uppercase border border-parchment-deep/50 text-parchment-deep hover:bg-parchment-deep/10 rounded-sm transition-all">
+                className={promptButton}>
                 Use
               </button>
             )}
             <button onClick={() => setDismissedPrompts(p => [...p, prompt.key])}
-              aria-label={`Skip ${prompt.key}`}
-              className="px-2 py-0.5 font-sans text-xs font-black uppercase border border-parchment-deep/30 text-parchment-deep/80 hover:text-cream rounded-sm transition-all">
+              aria-label={`Skip ${prompt.key}`} className={skipButton}>
               Skip
             </button>
           </div>
