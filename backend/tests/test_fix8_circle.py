@@ -7,8 +7,6 @@ from datetime import datetime
 import support
 from models import Character, Circle
 
-EM = support.EM
-
 
 def _rejected(action, status, detail):
     return {"type": "action_rejected", "payload": {"action": action, "status": status, "detail": detail}}
