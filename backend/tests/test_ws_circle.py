@@ -360,14 +360,17 @@ def test_a_death_and_its_undo_reach_the_other_players(client):
             support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, elsewhere["id"]) as we:
         wd.send("apply_scar", scar_text="The last one", skip_shifts=True)
         seen = wd.sync()
-        assert support.types(seen) == ["character_update", "activity_log", "member_status"]
-        assert seen[0]["payload"]["is_dead"] is True and seen[2] == status(True)
+        # and since fix round 8 (#73) the circle with its new maximum, and a line saying it
+        assert support.types(seen) == ["character_update", "activity_log", "circle_update", "activity_log",
+                                       "member_status"]
+        assert seen[0]["payload"]["is_dead"] is True and seen[4] == status(True)
         # Every desk, the Lightkeeper's too, is told of the death in its log
         said = {"type": "activity_log", "payload": {
             "message": f"{dying['name']} is deceased: a fourth scar.", "log_type": "danger", "ink_color": seen[1]["payload"]["ink_color"]}}
         assert seen[1] == said
-        assert wa.drain() == [said, status(True)]
-        assert support.types(gm.drain()) == ["member_update", "activity_log"]
+        assert seen[3]["payload"]["message"] == "Stitch, Refresh and Train now hold at most 2 each."
+        assert wa.drain() == [said, seen[2], seen[3], status(True)]
+        assert support.types(gm.drain()) == ["member_update", "activity_log", "circle_update", "activity_log"]
         # Rewording a dead investigator's scars changes nothing on the players' rosters
         gm.send("gm_update_scars", character_id=dying["id"], scars=SCARS + ["The last"], previous=four)
         assert support.types(gm.sync()) == ["member_update", "activity_log"]

@@ -118,7 +118,10 @@ def take_departed_spends(circle, character) -> int:
     count = kept.pop(_player_key(character), 0)
     if not count:
         return 0
-    answers[DEPARTED] = kept
+    if kept:
+        answers[DEPARTED] = kept
+    else:
+        answers.pop(DEPARTED, None)
     circle.backstory_answers = answers
     return count
 
