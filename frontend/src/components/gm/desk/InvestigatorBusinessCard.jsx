@@ -27,7 +27,11 @@ export const glanceOf = (inv) => {
   const picks = inv.advancement_picks || 0;
   const heldTypes = Array.isArray(inv.held_marks?.mark_types) ? inv.held_marks.mark_types : [];
   const held = heldTypes.length
-    ? `${heldTypes.map(t => `${t.charAt(0).toUpperCase()}${t.slice(1)}`).join(', ')} ${heldTypes.length === 1 ? 'mark' : 'marks'} held${inv.held_marks.ability ? `: ${inv.held_marks.ability}?` : ''}`
+    // Equal types counted once: "2 Bleed marks held", "Body and Bleed marks held"
+    ? `${[...new Set(heldTypes)].map((t) => {
+      const n = heldTypes.filter(x => x === t).length;
+      return `${n > 1 ? `${n} ` : ''}${t.charAt(0).toUpperCase()}${t.slice(1)}`;
+    }).join(' and ')} ${heldTypes.length === 1 ? 'mark' : 'marks'} held${inv.held_marks.ability ? `: ${inv.held_marks.ability}?` : ''}`
     : null;
   return [
     inv.incapacitated ? (inv.scar_pending ? 'Incapacitated: scar owed' : 'Incapacitated') : null,

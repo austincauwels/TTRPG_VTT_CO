@@ -228,8 +228,11 @@ export const RelationshipNegotiation = ({
       {/* The dead are a record: no proposal to or from them, Edit and Counter included (the
           server refuses each), only what was already there */}
       {(!inv.is_dead || mine) && <div>
-        <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>
-          <InfoTerm label={`Your relationship to ${inv.name}`} text="Each direction is its own relationship: yours to them, and theirs to you." />
+        {/* The slip is placed in the heading's own width: against the term it ran past the
+            card's clipped edge on a phone */}
+        <h4 className={`relative font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>
+          <InfoTerm label={`Your relationship to ${inv.name}`} text="Each direction is its own relationship: yours to them, and theirs to you."
+            anchored={false} slipClassName="left-0 top-full mt-1 w-[min(18rem,100%)]" />
         </h4>
         {mine && (!isEditing || inv.is_dead) ? (
           <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}

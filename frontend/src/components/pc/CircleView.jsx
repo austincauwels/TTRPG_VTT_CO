@@ -632,7 +632,7 @@ export const CircleView = () => {
   // Stitch clears marks: with none to clear, the ask says so (nothing is blocked)
   const noMarks = !(character?.body_marks || 0) && !(character?.brain_marks || 0) && !(character?.bleed_marks || 0);
   const spendAsk = (label) => (label === 'Stitch' && noMarks
-    ? 'No marks to clear. Press again to spend it anyway.'
+    ? 'Press again to spend 1 Stitch with no marks to clear.'
     : `Press again to spend 1 ${label} for the circle.`);
   // Said when the spend lands (the circle's count drops), and why a refused one did not
   const spentKey = useRef(null);
@@ -653,13 +653,17 @@ export const CircleView = () => {
     const t = setTimeout(() => setSpentNote(''), 6000);
     return () => clearTimeout(t);
   }, [spentNote]);
+  // Shown for eight seconds from when it came, so it does not return each time the Circle
+  // tab is opened again (the refusal stays in the store, and this page remounts)
   const [refusalShown, setRefusalShown] = useState(false);
   useEffect(() => {
     if (!spendRefusal?.detail) return undefined;
+    const left = 8000 - (Date.now() - (spendRefusal.at || 0));
+    if (left <= 0) { setRefusalShown(false); return undefined; }
     setRefusalShown(true);
     setSpentNote('');
     spentKey.current = null;
-    const t = setTimeout(() => setRefusalShown(false), 8000);
+    const t = setTimeout(() => setRefusalShown(false), left);
     return () => clearTimeout(t);
   }, [spendRefusal]);
   const [confirmKey, setConfirmKey] = useState(null);
@@ -951,7 +955,7 @@ export const CircleView = () => {
         <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-ink/25 pb-1 mb-2.5">
           <h3 id="circle-resources-title" className="font-sans text-sm font-black uppercase tracking-widest text-ink flex items-center gap-1.5">
             <SafeIcon name="GiScrollUnfurled" size={14} className="text-oxblood" />
-            <InfoTerm label="Circle Resources" text={`${refillRule(maxCap, (circle?.circle_ability || '').split('\n'))} Spending closes when an assignment ends and opens again with the next assignment's dispatch.`} />
+            <InfoTerm label="Circle Resources" text={refillRule(maxCap, (circle?.circle_ability || '').split('\n'))} />
           </h3>
           {/* Where spending stands: locked by the GM, or how many of this assignment's two are used */}
           <span className="font-sans text-xs font-bold uppercase tracking-wider text-sepia">
@@ -962,7 +966,8 @@ export const CircleView = () => {
             ) : (
               <span className="flex items-center gap-1.5">
                 <SafeIcon name="GiPadlock" size={13} />
-                Spending locked
+                {/* Closed by End Assignment, as on the Lightkeeper's page (fix round 8, decision 9) */}
+                {circle?.backstory_answers?.spending_paused ? 'Closed until the dispatch' : 'Spending locked'}
               </span>
             )}
           </span>
