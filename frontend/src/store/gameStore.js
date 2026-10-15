@@ -81,6 +81,7 @@ let offerSeq = 0;        // the id each ability offer is given, so each gets its
 let markAnswerOut = false; // the last answer sent was to an offer that held this investigator's own mark
 let pointAnswerOut = false; // the last answer sent was to a Non-Combatant drive point (an ally's offer)
 let rollAskedBack = null; // the id of the open roll the tray showed as the socket opened, until the server sends it back (#78)
+let feltAskedBack = null; // the player's roll the Lightkeeper's felt stamped "Burn open" as her socket opened, until it is sent back (#86)
 let scarFormSeq = 0;     // the id each scar form is opened with, so a new one starts blank
 const nextScarForm = () => { scarFormSeq += 1; return scarFormSeq; };
 
@@ -872,6 +873,9 @@ const useGameStore = create(
             const st = get();
             rollAskedBack = !onGmDesk(get) && st.lastRoll && (st.pendingGildedChoice || !st.lastRollSettled)
               ? st.lastRoll.id : null;
+            // The same on the Lightkeeper's felt: a player's roll still open to a burn
+            feltAskedBack = onGmDesk(get) && st.tableRoll?.character_id != null && !st.tableRollSettled
+              ? st.tableRoll : null;
           }
           // The GM desk opened again (a drop, a laptop waking, "Use this tab"): the members'
           // changes made while it was down never came, so what it shows loads again. So do
@@ -1118,6 +1122,7 @@ const useGameStore = create(
             const own = p.character_id == null
               ? st.accessSession?.role === 'GM'
               : p.character_id === st.character?.id;
+            feltAskedBack = null;
             if (!own && p.replayed) {
               // The newest roll on the Lightkeeper's felt, sent again as her desk opens
               // (#40): it has landed already, so it plays no dice and settles nothing. The
@@ -1246,11 +1251,11 @@ const useGameStore = create(
             if (message.payload.action === 'gm_update_circle') {
               set({ circleRefusal: { detail: message.payload.detail || 'That change was not made.', at: Date.now() } });
             }
-            // An earn-back refused (a full resource, or another desk chose first): the ask says why
             // A circle resource spend refused (spending closed): the Circle page says why
             if (message.payload.action === 'spend_resource') {
               set({ spendRefusal: { detail: message.payload.detail || 'Nothing was spent.', at: Date.now() } });
             }
+            // An earn-back refused (a full resource, or another desk chose first): the ask says why
             if (message.payload.action === 'gm_earn_back') {
               set({ earnBackRefusal: { detail: message.payload.detail || 'Nothing was earned back.', at: Date.now() } });
             }
@@ -1325,6 +1330,12 @@ const useGameStore = create(
                   pendingGildedChoice: null, lastRollSettled: true, rollLost: state.rollLost + 1,
                 }));
               }
+            }
+            // The player's roll the Lightkeeper's felt stamped "Burn open" was not sent back
+            // either: no burn can answer it now. It stays on the felt, unstamped (#86)
+            if (feltAskedBack != null) {
+              if (get().tableRoll === feltAskedBack) set({ tableRollSettled: true });
+              feltAskedBack = null;
             }
           }
           else if (message.type === 'vote_update') {

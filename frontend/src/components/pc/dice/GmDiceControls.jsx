@@ -44,8 +44,8 @@ export const GmDiceControls = ({ rollAction }) => {
 
       <button
         onClick={() => rollAction('Lightkeeper', gmDiceCount, gmSecretRoll)}
-        className={`inline-flex items-center gap-2 px-5 py-2 hover:brightness-125 font-sans text-sm font-black uppercase tracking-widest transition rounded ${
-          gmSecretRoll ? 'bg-ink text-oxblood-lit border-2 border-dashed border-oxblood-lit' : 'bg-oxblood text-cream border border-ink'}`}
+        className={`inline-flex items-center gap-2 px-5 py-2 [@media(pointer:coarse)]:min-h-[44px] hover:brightness-125 font-sans text-sm font-black uppercase tracking-widest transition rounded border-2 ${
+          gmSecretRoll ? 'bg-ink text-oxblood-lit border-dashed border-oxblood-lit' : 'bg-oxblood text-cream border-ink'}`}
       >
         {gmSecretRoll && <SafeIcon name="GiDominoMask" size={18} className="shrink-0" />}
         Roll {gmDiceCount} {gmDiceCount === 1 ? 'die' : 'dice'}{gmSecretRoll ? ' in secret' : ''}

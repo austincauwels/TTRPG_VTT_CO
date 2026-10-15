@@ -104,6 +104,24 @@ def test_the_felt_roll_sent_again_says_when_its_burn_is_closed(client, dice):
         assert thrown["payload"]["settled"] is True and thrown["payload"]["character_id"] == a["id"]
 
 
+def test_a_secret_roll_after_the_felt_roll_closes_its_burn_on_a_reload(client, dice):
+    """#86: a secret roll is never put on the felt, but a burn answers it now, not the
+    open roll the felt still shows. Her desk that opens again is sent the felt roll with
+    settled: true, though both rolls were of the same action."""
+    camp = support.new_campaign(client)
+    a = support.active_member(client, camp, move=1, nerve_max=6)
+    with support.ws_connect(client, a["id"]) as wa:
+        dice(2)
+        wa.send("roll", action="move", drive_spent=0)
+        wa.sync()
+        dice(3)
+        wa.send("roll", action="move", drive_spent=0, is_secret=True)
+        wa.sync()
+    with support.ws_connect(client, camp["campaign_code"]) as gm:
+        [thrown] = support.of_type(gm.sync(), "dice_thrown")
+        assert thrown["payload"]["settled"] is True and [d["value"] for d in thrown["payload"]["roll"]["dice"]] == [2]
+
+
 # --- #81: a mark dealt to a closed desk beside a stored hold -------------------------------------
 
 def test_a_mark_dealt_to_a_closed_desk_lands_the_held_one_first(client):
