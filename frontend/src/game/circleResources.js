@@ -19,13 +19,14 @@ const earnsBackAtMilestones = (abilities) =>
 // #66.4 removed the refill button), and a circle with Resource Management earns one back
 // at each milestone. Printed under the resources on both circle pages, with the spending
 // limit (p. 45; fix round 4, decision 2: spending is open whenever the Lightkeeper opens
-// it, and End Assignment resets the count). The rule comes first and the sum after it,
+// it, and End Assignment resets the count; fix round 8, decision 9: End Assignment closes
+// it and the next dispatch opens it again). The rule comes first and the sum after it,
 // with the member count named apart from the result ("now 5" read as five members;
 // playtest, 2026-10-09).
 const members = (maxCap) => `1 plus the circle's ${maxCap - 1} member${maxCap - 1 === 1 ? '' : 's'}`;
 export const refillRule = (maxCap, abilities) => (earnsBackAtMilestones(abilities)
-  ? `Each player may spend up to two each assignment, whenever the Lightkeeper opens spending; the count starts again when the assignment ends. Spent resources come back on the Illumination track: at each milestone (3, 6 and 9) Resource Management earns back one, the circle's choice, and when the circle advances on a full track each refills to ${maxCap} (${members(maxCap)}).`
-  : `Each player may spend up to two each assignment, whenever the Lightkeeper opens spending; the count starts again when the assignment ends. Spent resources do not come back after an assignment: when the circle advances on a full Illumination track, each refills to ${maxCap} (${members(maxCap)}).`);
+  ? `Each player may spend up to two each assignment, whenever the Lightkeeper opens spending; End Assignment closes it until the next assignment's dispatch and starts the count again. Spent resources come back on the Illumination track: at each milestone (3, 6 and 9) Resource Management earns back one, the circle's choice, and when the circle advances on a full track each refills to ${maxCap} (${members(maxCap)}).`
+  : `Each player may spend up to two each assignment, whenever the Lightkeeper opens spending; End Assignment closes it until the next assignment's dispatch and starts the count again. Spent resources do not come back after an assignment: when the circle advances on a full Illumination track, each refills to ${maxCap} (${members(maxCap)}).`);
 
 // The same, as the charter card's ledger entry, which shows each maximum already
 export const refillEntry = (maxCap, abilities) => (earnsBackAtMilestones(abilities)

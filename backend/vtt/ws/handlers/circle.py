@@ -6,9 +6,14 @@ from datetime import datetime, timezone
 
 from models import Character, Circle, CircleVote, Relationship
 from vtt.assignment import REPORTS, answers_of, reports_of
+from vtt.auth import NOT_ALLOWED
 from vtt.circle_queries import canonical_name_suggestion, circle_abilities, relationships_list, resolve_circle, take_train_die, votes_dict
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.manager import campaign_key, log_line, manager
+
+# Set on the circle's answers when End Assignment closed spending, which the next
+# assignment's first dispatch opens again (fix round 8, decision 9; vtt/ws/handlers/gm.py)
+SPENDING_PAUSED = "spending_paused"
 
 
 async def refuse(ctx, action, status, detail):
@@ -54,13 +59,30 @@ async def handle_submit_assignment_report(ctx):
                     or reporter.campaign_id != target_circle.campaign_id:
                 await refuse(ctx, "submit_assignment_report", 409, "This investigator is not a member of the campaign.")
                 return
+            # The death can commit between the access check (DEAD_REFUSED) and this lock
+            # (playtest 4, dead-can-file-report)
+            if reporter.is_dead:
+                await refuse(ctx, "submit_assignment_report", 409, f"{reporter.name} is dead: the sheet is a record.")
+                return
             reporter_name = reporter.name
-            amended = str(char_id) in reports
-            # The shape of the frame below, which the GM's report card reads after a
-            # reload too, with when it was filed for its date stamp
-            report = {"character_name": reporter_name, "responses": responses,
-                      "submitted_at": datetime.now(timezone.utc).isoformat()}
+            filed = reports.get(str(char_id))
+            amended = filed is not None
             note = (payload.get("note") or "").strip()
+            # An amendment that changes nothing is not one (playtest 4,
+            # amend-without-change-logged: trailing newlines logged an amendment)
+            if isinstance(filed, dict) and filed.get("responses") == responses \
+                    and (filed.get("note") or "").strip() == note:
+                await refuse(ctx, "submit_assignment_report", 409, "Nothing changed.")
+                return
+            now = datetime.now(timezone.utc).isoformat()
+            # The shape of the frame below, which the GM's report card reads after a
+            # reload too, with when it was filed for its date stamp. An amended report
+            # keeps when it was first filed and says when it was amended, which the card
+            # shows (playtest 4, report-card-no-amended-mark)
+            report = {"character_name": reporter_name, "responses": responses,
+                      "submitted_at": (filed.get("submitted_at") if isinstance(filed, dict) else None) or now}
+            if amended:
+                report["amended_at"] = now
             if note:
                 report["note"] = note
             reports[str(char_id)] = report
@@ -79,7 +101,13 @@ async def handle_spend_resource(ctx):
     resource_type = payload.get("resource_type")
     if resource_type not in ("stitch", "refresh", "train"):
         return
-    if not circle or not getattr(circle, "resources_editable", False):
+    if not circle:
+        return
+    if not getattr(circle, "resources_editable", False):
+        # Said, where it was silent: closed by End Assignment until the next assignment's
+        # first dispatch, or locked by the Lightkeeper (fix round 8, decision 9)
+        await refuse(ctx, "spend_resource", 409, "Spending is closed until the next assignment starts."
+                     if answers_of(circle).get(SPENDING_PAUSED) else "Spending is locked until the Lightkeeper opens it.")
         return
     if (getattr(character, "resources_spent_assignment", 0) or 0) >= 2:
         return
@@ -175,6 +203,11 @@ async def handle_circle_backstory_update(ctx):
     c_id = payload.get("circle_id") or (circle.id if circle else 1)
     q_key = payload.get("question_key")
     answer = payload.get("answer", "")
+    if q_key == SPENDING_PAUSED:
+        # The server's own flag, as the keys access.py reserves: a member could open the
+        # Lightkeeper's locked spending at the next dispatch, or keep it closed
+        await refuse(ctx, "circle_backstory_update", 403, NOT_ALLOWED)
+        return
     if q_key:
         target_circle = resolve_circle(db, c_id, camp_id)
         if target_circle:
