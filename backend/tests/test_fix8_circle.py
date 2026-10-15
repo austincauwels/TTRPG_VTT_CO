@@ -262,3 +262,27 @@ def test_the_lightkeepers_own_choice_stands_after_end_assignment(client):
         msgs = gm.sync()
         assert support.of_type(msgs, "circle_update")[0]["payload"]["resources_editable"] is False
         assert "Spending is open again: up to two each." not in _lines(msgs)
+
+
+def test_no_one_writes_the_spending_flag_through_the_backstory(client):
+    """Fixed (review of fix round 8): the flag sits in the circle's backstory answers, so a
+    member could set it through circle_backstory_update and open the Lightkeeper's locked
+    spending at the next dispatch, or blank it so spending stayed closed. It is refused,
+    as the other keys the server keeps, and the flag stays as it was."""
+    camp, (a,), cid = _campaign(client)
+    with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, a["id"]) as wa:
+        wa.send("circle_backstory_update", circle_id=cid, question_key="spending_paused", answer="yes")
+        assert wa.sync() == [_rejected("circle_backstory_update", 403, "Not allowed.")]
+        assert "spending_paused" not in (support.fetch(Circle, cid).backstory_answers or {})
+        gm.send("gm_update_circle", circle_id=cid, location="Docks")
+        msgs = gm.sync()
+        assert support.of_type(msgs, "circle_update")[0]["payload"]["resources_editable"] is False
+        assert "Spending is open again: up to two each." not in _lines(msgs)
+        # Closed by End Assignment: a member cannot blank the flag to keep it closed
+        support.update(Circle, cid, resources_editable=True)
+        gm.send("gm_end_assignment", circle_id=cid)
+        gm.sync()
+        wa.drain()
+        wa.send("circle_backstory_update", circle_id=cid, question_key="spending_paused", answer="")
+        assert wa.sync() == [_rejected("circle_backstory_update", 403, "Not allowed.")]
+        assert support.fetch(Circle, cid).backstory_answers["spending_paused"] is True

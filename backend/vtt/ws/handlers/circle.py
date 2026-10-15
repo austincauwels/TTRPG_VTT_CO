@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from models import Character, Circle, CircleVote, Relationship
 from vtt.assignment import REPORTS, answers_of, reports_of
+from vtt.auth import NOT_ALLOWED
 from vtt.circle_queries import canonical_name_suggestion, circle_abilities, relationships_list, resolve_circle, take_train_die, votes_dict
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.manager import campaign_key, log_line, manager
@@ -202,6 +203,11 @@ async def handle_circle_backstory_update(ctx):
     c_id = payload.get("circle_id") or (circle.id if circle else 1)
     q_key = payload.get("question_key")
     answer = payload.get("answer", "")
+    if q_key == SPENDING_PAUSED:
+        # The server's own flag, as the keys access.py reserves: a member could open the
+        # Lightkeeper's locked spending at the next dispatch, or keep it closed
+        await refuse(ctx, "circle_backstory_update", 403, NOT_ALLOWED)
+        return
     if q_key:
         target_circle = resolve_circle(db, c_id, camp_id)
         if target_circle:
