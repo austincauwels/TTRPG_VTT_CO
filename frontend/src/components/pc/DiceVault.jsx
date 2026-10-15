@@ -112,8 +112,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       return idx === lastRoll.gilded_idx || idx === lastRoll.highest_regular_idx;
     }
     // After a gilded choice the die that was kept is the one that counts, even when a
-    // regular die shows more
+    // regular die shows more; with none kept (the roll was lost, #78) none counts
     if (keptDie) return idx === keptDie.idx;
+    if (lastRoll.needs_gilded_choice) return false;
     if (lastRoll.type === 'zero') {
       const minVal = Math.min(...lastRoll.dice.map(d => d.value));
       return die.value === minVal;
