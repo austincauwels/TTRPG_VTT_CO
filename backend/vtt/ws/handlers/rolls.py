@@ -24,7 +24,6 @@ from vtt.circle_queries import (SAW_THIS_COMING_USES, STAMINA_DICE, circle_abili
                                 train_dice_left)
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.handlers.circle import announce_downed, announce_status
-from vtt.serializers import awaiting_scar
 from vtt.ws.handlers.marks import apply_mark
 from vtt.ws.manager import character_key, manager
 
@@ -854,7 +853,7 @@ async def handle_use_post_roll_ability(ctx):
         # recorded counts.
         ally = _ally(ctx, payload)
         mixed = fresh and last["outcome"] == "mixed_success"
-        scar_number = ally is not None and (ally.scars_count or 0) + (1 if ally.id in awaiting_scar else 0)
+        scar_number = ally is not None and (ally.scars_count or 0) + (1 if ally.scar_pending else 0)
         if not (fresh and last["action"] == "read" and (mixed or last["outcome"] in SUCCESS)
                 and ally is not None and ally.incapacitated and not ally.is_dead and scar_number < 4):
             db.rollback()

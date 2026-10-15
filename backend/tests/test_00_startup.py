@@ -123,7 +123,7 @@ def test_migrated_columns_exist(client):
     assert {"role", "specialty", "personal_circle_answer", "nerve_resistance_spent",
             "cunning_resistance_spent", "intuition_resistance_spent", "ability_uses",
             "train_bonus", "resources_spent_assignment", "deleted_at", "sheet_edited",
-            "held_mark", "taken_mark_ids"} <= cols["characters"]
+            "held_mark", "taken_mark_ids", "scar_pending", "let_in"} <= cols["characters"]
     assert "last_actor_id" in cols["relationships"]
     assert {"entry_type", "visibility", "image_data", "is_deleted", "sketch_scene"} <= cols["notebook_entries"]
     assert {"pending_rejoin_campaign_id", "google_sub", "google_email", "email_proven",
@@ -329,6 +329,8 @@ MIGRATED_COLUMNS = {
     ("characters", "sheet_edited"): ("boolean", "false"),
     ("characters", "held_mark"): ("json", None),
     ("characters", "taken_mark_ids"): ("json", "'[]'::json"),
+    ("characters", "scar_pending"): ("boolean", "false"),
+    ("characters", "let_in"): ("boolean", "false"),
     ("relationships", "last_actor_id"): ("integer", None),
     ("notebook_entries", "entry_type"): ("text", "'field_log'::text"),
     ("notebook_entries", "visibility"): ("text", "'all'::text"),
@@ -389,7 +391,8 @@ def test_init_db_upgrades_a_database_from_the_last_release_without_errors(client
     alone now, and the new columns are added."""
     added = [("circles", "stamina_dice_used"), ("characters", "warded_by_id"), ("characters", "train_dice"),
              ("characters", "advancement_set"), ("characters", "sheet_edited"), ("circles", "earn_backs"),
-             ("circles", "milestones_earned"), ("characters", "held_mark"), ("characters", "taken_mark_ids")]
+             ("circles", "milestones_earned"), ("characters", "held_mark"), ("characters", "taken_mark_ids"),
+             ("characters", "scar_pending"), ("characters", "let_in")]
     with support.isolated_schema() as (eng, Session, schema):
         with eng.begin() as conn:
             for table, col in added:

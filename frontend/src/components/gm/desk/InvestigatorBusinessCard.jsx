@@ -18,15 +18,21 @@ const nameFit = (name) => {
 };
 
 // The state of a living investigator at a glance, in a line or two: incapacitated (or a scar owed),
-// the marks on each track, the scars, and advancements waiting. Empty for one in good order.
+// the marks on each track, a mark an open soak or Death Defy offer holds (held_marks), the
+// scars, and advancements waiting. Empty for one in good order.
 export const glanceOf = (inv) => {
   const marks = [['Body', inv.body_marks], ['Brain', inv.brain_marks], ['Bleed', inv.bleed_marks]]
     .filter(([, n]) => n > 0).map(([name, n]) => `${n} ${name}`);
   const scars = inv.scars_count || 0;
   const picks = inv.advancement_picks || 0;
+  const heldTypes = Array.isArray(inv.held_marks?.mark_types) ? inv.held_marks.mark_types : [];
+  const held = heldTypes.length
+    ? `${heldTypes.map(t => `${t.charAt(0).toUpperCase()}${t.slice(1)}`).join(', ')} ${heldTypes.length === 1 ? 'mark' : 'marks'} held${inv.held_marks.ability ? `: ${inv.held_marks.ability}?` : ''}`
+    : null;
   return [
     inv.incapacitated ? (inv.scar_pending ? 'Incapacitated: scar owed' : 'Incapacitated') : null,
     marks.length ? `Marks: ${marks.join(', ')}` : null,
+    held,
     scars > 0 ? `${scars} ${scars === 1 ? 'scar' : 'scars'}` : null,
     picks > 0 ? `${picks} ${picks === 1 ? 'advancement' : 'advancements'} waiting` : null,
   ].filter(Boolean);

@@ -12,11 +12,6 @@ from vtt.assignment import without_reports
 from vtt.countdown import timer_fields
 from vtt.portraits import served_portrait
 
-# Characters whose fourth mark asked for a scar not yet recorded (handle_apply_scar clears
-# it). Kept here so the sheet can say a scar is owed (scar_pending). In memory only.
-awaiting_scar: set = set()
-
-
 def advancement_taken(char) -> list:
     """The advancement options the character has taken among its waiting picks (a list,
     whatever the column holds)."""
@@ -101,14 +96,22 @@ def get_char_dict(char):
         # Incapacitated by a fourth mark and the scar not yet written (the Lightkeeper's desk
         # reads it; like the rest of this sheet it also reaches the members wherever the whole
         # sheet is sent: circle-creation-state, investigator_approved, character_joined_mid_campaign)
-        "scar_pending": getattr(char, "id", None) in awaiting_scar,
+        "scar_pending": bool(getattr(char, "scar_pending", False)),
         # A change the player made by hand that the Lightkeeper has not seen: the dot on
         # the roster card (vtt/sheet_edits.py)
         "sheet_edited": bool(getattr(char, "sheet_edited", False)),
         # The marks an open soak or Death Defy offer holds back, which the Lightkeeper's
         # copy of the sheet draws held (#23): {ability, mark_types}, or None
         "held_marks": held_marks(char),
+        # Let in and not yet played (the registry's Let in mark): only while a member
+        "let_in": let_in(char),
     }
+
+
+def let_in(char) -> bool:
+    """Approved (or back by a rejoin) and not yet played, while still an active member."""
+    return bool(getattr(char, "let_in", False)) and getattr(char, "status", None) == "active" \
+        and not getattr(char, "is_dead", False)
 
 
 def held_marks(char):

@@ -3,7 +3,8 @@ import secrets
 from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
-from models import Campaign, Character, NotebookEntry
+from models import Campaign, Character, Circle, NotebookEntry
+from vtt.assignment import take_departed_spends
 from vtt.db import releases_locks_on_error
 
 INK_COLORS = [
@@ -101,6 +102,13 @@ def approve_investigator(db: Session, character_id: int):
                 [character.resources_spent_assignment or 0] + spent_before)
             for old in dead_predecessors:
                 old.status = "retired"
+        # A member who left in this assignment and comes back keeps the spends they left
+        # with (fix round 8, decision 3), as a replacement keeps its predecessor's
+        circle = db.query(Circle).filter(Circle.campaign_id == character.campaign_id) \
+            .populate_existing().with_for_update().first()
+        if circle is not None:
+            character.resources_spent_assignment = max(
+                character.resources_spent_assignment or 0, take_departed_spends(circle, character))
 
         active_count = db.query(Character).filter(
             Character.campaign_id == character.campaign_id,
@@ -111,6 +119,8 @@ def approve_investigator(db: Session, character_id: int):
         character.status = "active"
         # A dot left from another campaign is not this Lightkeeper's to see
         character.sheet_edited = False
+        # The registry's Let in mark, until the player opens the desk
+        character.let_in = True
         db.commit()
         db.refresh(character)
         return {"success": True, "character": character}

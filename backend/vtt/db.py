@@ -464,6 +464,13 @@ def init_db():
         ("held_mark",      "JSON"),
         ("taken_mark_ids", "JSON DEFAULT '[]'"),
     ])
+    # A scar owed by a fourth mark, kept so a restart does not lose it (#72), and the Let
+    # in mark of an approved character not yet played, kept so every browser shows it.
+    # Existing characters owe none and carry no mark.
+    add_columns("characters", [
+        ("scar_pending", "BOOLEAN DEFAULT FALSE"),
+        ("let_in",       "BOOLEAN DEFAULT FALSE"),
+    ])
     # The campaigns' Activity Log lines (vtt/ws/manager.py). main.py's create_all makes the
     # table on a normal start; this makes it on a database that only init_db upgrades.
     try:

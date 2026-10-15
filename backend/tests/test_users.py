@@ -16,7 +16,7 @@ def test_user_characters(client):
         "id": free["id"], "name": free["name"], "role_ability": "Flourish",
         "specialty_ability": "None", "status": "unaffiliated", "is_dead": False,
         "campaign_id": None, "campaign_name": None, "campaign_code": None,
-        "pen_font": "Caveat",
+        "pen_font": "Caveat", "let_in": False,
     }
     assert rows[member["id"]]["status"] == "active"
     assert rows[member["id"]]["campaign_id"] == camp["id"]

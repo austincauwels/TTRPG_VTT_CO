@@ -1243,7 +1243,8 @@ def test_nobody_left_behind_adds_a_die_while_a_member_is_down(client, dice):
         ws.send("roll", action="move", drive_spent=0, ability_mods=["Nobody Left Behind"])
         return len(support.of_type(ws.sync(), "roll_result")[0]["payload"]["roll"]["dice"]) == count
 
-    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb:
+    with support.ws_connect(client, a["id"]) as wa, support.ws_connect(client, b["id"]) as wb, \
+            support.ws_connect(client, camp["campaign_code"]) as gm:
         assert rolls(wa, 1)   # nobody is down: no die
         support.update(Character, b["id"], body_marks=3)
         wb.send("take_mark", mark_type="body", is_from_enemy=False)
@@ -1252,8 +1253,8 @@ def test_nobody_left_behind_adds_a_die_while_a_member_is_down(client, dice):
         assert rolls(wa, 2)   # b is down: +1d
         assert rolls(wb, 1)   # not for b's own rolls
         wb.drain()
-        wb.send("revive_character")
-        wb.sync()
+        gm.send("revive_character", character_id=b["id"])
+        gm.sync()
         update = next(m for m in wa.drain(0.5) if m["type"] == "circle_update")
         assert update["payload"]["incapacitated_members"] == []
         assert rolls(wa, 1)
