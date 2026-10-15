@@ -48,7 +48,7 @@ const TieNote = ({ votes }) => (isTied(votes)
 
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 
-function Section({ title, id, children, defaultOpen = true }) {
+function Section({ title, id, children, defaultOpen = true, done = false }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div id={id} className="border border-sepia/50 rounded-sm mb-6 scroll-mt-16">
@@ -59,6 +59,7 @@ function Section({ title, id, children, defaultOpen = true }) {
       >
         <span className="font-sans text-base uppercase tracking-widest font-bold text-sepia">
           {title}
+          {done && <><TickMark className="ml-2 text-seal-green" /><span className="sr-only"> (done)</span></>}
         </span>
         <span className="font-sans text-sepia text-lg">{open ? '▲' : '▼'}</span>
       </button>
@@ -147,6 +148,15 @@ export const CircleCreationPopup = () => {
   // leave Circle Relationships, as they leave the Lightkeeper's papers
   const others = livingMembers(activeInvestigators).filter(inv => inv.id !== myId);
 
+  // The parts this player has done: voted (question, name, ability, insignia), the chapter
+  // house written, or a relationship proposed or answered with every other living member
+  // and none waiting on this player's reply
+  const relationshipsDone = others.length > 0 && others.every(inv => relationships.some(r =>
+    ((r.from_character_id === myId && r.to_character_id === inv.id) || (r.to_character_id === myId && r.from_character_id === inv.id))
+    && (r.status === 'accepted' || r.last_actor_id === myId)))
+    && !relationships.some(r => (r.from_character_id === myId || r.to_character_id === myId) && r.status !== 'accepted' && r.last_actor_id !== myId);
+  const partDone = [!!myQuestionVote, !!myNameVote, (backstoryAnswers.chapter_house ?? '').trim() !== '', !!myAbilityVote, !!myInsigniaVote, relationshipsDone];
+
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
   const [nameNote, setNameNote] = useState('');
@@ -233,13 +243,15 @@ export const CircleCreationPopup = () => {
               <button key={id} type="button"
                 onClick={() => document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })}
                 className="shrink-0 min-h-[44px] min-w-[44px] px-3 font-sans text-xs font-black uppercase tracking-wider text-sepia hover:text-ink border border-sepia/30 rounded-sm">
-                {['I', 'II', 'III', 'IV', 'V', 'VI'][i]}<span className="sr-only">. {label}</span>
+                {['I', 'II', 'III', 'IV', 'V', 'VI'][i]}
+                {partDone[i] && <TickMark className="ml-1 text-seal-green" />}
+                <span className="sr-only">. {label}{partDone[i] ? ', done' : ''}</span>
               </button>
             ))}
           </nav>
 
           {/* ── SECTION I: Circle Question ── */}
-          <Section title="I. Circle Question" id="formation-part-1">
+          <Section title="I. Circle Question" id="formation-part-1" done={partDone[0]}>
             <div className="space-y-3 mb-5">
               {CIRCLE_QUESTIONS.map((q) => {
                 const count = questionTally[q.key] || 0;
@@ -303,7 +315,7 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION II: Name the Circle ── */}
-          <Section title="II. Name the Circle" id="formation-part-2">
+          <Section title="II. Name the Circle" id="formation-part-2" done={partDone[1]}>
             <div className="flex gap-2 mb-5 items-center">
               <input
                 type="text"
@@ -324,10 +336,12 @@ export const CircleCreationPopup = () => {
               >
                 Suggest
               </button>
-              <span className="font-mono tabular-nums text-sm text-sepia shrink-0" aria-label={`${mySuggestionCount} of 5 suggestions used`}>{mySuggestionCount}/5</span>
             </div>
-            {nameDraft.length >= 60 && <p id="circle-name-count" className="font-mono tabular-nums text-xs text-sepia -mt-3 mb-4 text-right">{nameDraft.length}/80 characters</p>}
-            {nameNote && <p role="status" className="font-serif italic text-sm text-sepia -mt-3 mb-4">{nameNote}</p>}
+            <p role="status" className="font-serif italic text-sm text-sepia -mt-3 mb-4">
+              {mySuggestionCount >= 5 ? 'You have made 5 suggestions.' : `Your suggestions: ${mySuggestionCount} of 5`}
+            </p>
+            {nameDraft.length >= 60 && <p id="circle-name-count" className="font-mono tabular-nums text-xs text-sepia -mt-2 mb-4 text-right">{nameDraft.length}/80 characters</p>}
+            {nameNote && <p role="status" className="font-serif italic text-sm text-sepia -mt-2 mb-4">{nameNote}</p>}
 
             {allSuggestedNames.length > 0 ? (
               <div className="space-y-2">
@@ -387,7 +401,7 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION III: Chapter House Location ── */}
-          <Section title="III. Chapter House Location" id="formation-part-3">
+          <Section title="III. Chapter House Location" id="formation-part-3" done={partDone[2]}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
               <div className="hand-placed bg-parchment/80 border border-sepia/30 p-4 rounded-sm" style={{ '--tilt': '-0.8deg' }}>
                 <p className="font-serif text-base text-sepia leading-snug italic">
@@ -424,7 +438,9 @@ export const CircleCreationPopup = () => {
                   none either once another member has replaced what this desk saved, since
                   nothing of this desk's is unsaved then */}
               <p role="status" className="font-serif italic text-sm text-sepia mt-1 text-right min-h-[1.25rem]">
-                {houseDraft !== null && houseDraft !== house ? 'Not saved yet'
+                {houseDraft !== null && house !== houseAtFocus.current && house !== houseDraft
+                  ? (houseDraft === houseAtFocus.current ? 'Another member changed this. Leave the box to see it.' : 'Another member changed this. Leaving the box replaces it.')
+                  : houseDraft !== null && houseDraft !== house ? 'Not saved yet'
                   : houseSent === null ? '' : !houseSent.ok ? 'Not saved yet' : house === houseSent.text ? 'Saved' : ''}
               </p>
             </div>
@@ -445,7 +461,7 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION IV: Circle Ability ── */}
-          <Section title="IV. Circle Ability" id="formation-part-4">
+          <Section title="IV. Circle Ability" id="formation-part-4" done={partDone[3]}>
             <div className="space-y-3">
               {CIRCLE_ABILITIES.map((ability) => {
                 const count = abilityTally[ability.key] || 0;
@@ -483,7 +499,7 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION V: System Insignia ── */}
-          <Section title="V. Insignia" id="formation-part-5">
+          <Section title="V. Insignia" id="formation-part-5" done={partDone[4]}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {INSIGNIA_OPTIONS.map((ins) => {
                 const count = insigniaTally[ins.key] || 0;
@@ -515,7 +531,7 @@ export const CircleCreationPopup = () => {
           </Section>
 
           {/* ── SECTION VI: Relationship Matrix ── */}
-          <Section title="VI. Circle Relationships" id="formation-part-6">
+          <Section title="VI. Circle Relationships" id="formation-part-6" done={partDone[5]}>
 
             {others.length === 0 ? (
               <div className="h-24 rounded-sm border border-dashed border-sepia/40"><span className="sr-only">No one else in the circle</span></div>
