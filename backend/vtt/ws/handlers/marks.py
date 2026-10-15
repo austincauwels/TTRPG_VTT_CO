@@ -48,7 +48,8 @@ with the time left (send_open_intercepts). The Activity Log of the Lightkeeper a
 ally offered says who was offered what, and, when the window ran out with the offer not
 used, that it lapsed (_watch_lapse); no other desk gets these lines (Robert's decision 6,
 playtest 3, behind-me-offer-unseen: the offer opened and lapsed unseen). Non-Combatant's
-drive point, offered to every ally for the same window, is logged the same way. The watch
+drive point, offered to every ally for the same window, is logged and sent again the
+same way. The watch
 is in memory like the offer, so after a restart no lapse is logged, and an answer to
 the offer is refused as one that came too late (NO_MARK_TO_ANSWER, and Non-Combatant's
 own refusal): these offers expire cleanly (fix round 6, decision 1).
@@ -108,8 +109,10 @@ INTERCEPT_WINDOW = 120  # seconds an ally may still answer an offered mark
 _watched: set = set()
 # The running watches, kept so they are not collected before they wake
 _watches: set = set()
-# ally id -> deadlines of the Non-Combatant drive points they were offered, one per mark
-# (an answer takes out the oldest, so that point's lapse watch, _point_waiting, logs nothing)
+# ally id -> the Non-Combatant drive points they were offered, one per mark, oldest first:
+# {deadline, doctor_id, doctor_name, mark_type} (an answer takes out the oldest, so that
+# point's lapse watch, _point_waiting, logs nothing; a desk that opens is sent each one
+# still open again, send_open_intercepts)
 _non_combatant: dict = {}
 NO_MARK_TO_ANSWER = "No ally's mark is waiting for that, or another ally answered it first."
 # The ids of the last marks the player's desk sent (take_mark's mark_id) are kept in the
@@ -349,10 +352,10 @@ async def _offer_non_combatant(ctx, doctor, m_type):
     point = f"Non-Combatant drive point from {doctor.name}'s {m_type.capitalize()} mark"
     for ally in allies:
         deadline = now + window
-        _non_combatant[ally.id] = [t for t in _non_combatant.get(ally.id, []) if t > now] + [deadline]
-        await manager.broadcast(character_key(ally.id), {"type": "ability_mark_offer", "payload": {
-            "ability": "Non-Combatant", "mark_type": m_type, "character_id": doctor.id,
-            "character_name": doctor.name, "action": "drive_refresh", "expires_in": window}})
+        offered = {"deadline": deadline, "doctor_id": doctor.id, "doctor_name": doctor.name, "mark_type": m_type}
+        _non_combatant[ally.id] = _open_points(ally.id, now) + [offered]
+        await manager.broadcast(character_key(ally.id), {"type": "ability_mark_offer",
+                                                         "payload": _point_offer(offered, window)})
         # Logged like an ally's Behind Me offer (decision 6): an answer takes the deadline out
         await _tell_offered(ctx.camp_code, ctx.camp_id, ally.id,
                             f"{ally.name} is offered a {point} ({_window_words(window)}).")
@@ -369,7 +372,18 @@ def forget_points(character_id):
 
 def _point_waiting(ally_id, deadline) -> bool:
     """Whether the ally's Non-Combatant drive point with this deadline was never taken."""
-    return deadline in _non_combatant.get(ally_id, [])
+    return any(p["deadline"] == deadline for p in _non_combatant.get(ally_id, []))
+
+
+def _open_points(ally_id, now):
+    """The ally's Non-Combatant drive points still open, oldest first."""
+    return [p for p in _non_combatant.get(ally_id, []) if p["deadline"] > now]
+
+
+def _point_offer(point, expires_in):
+    """The ability_mark_offer payload of a Non-Combatant drive point, open expires_in seconds."""
+    return {"ability": "Non-Combatant", "mark_type": point["mark_type"], "character_id": point["doctor_id"],
+            "character_name": point["doctor_name"], "action": "drive_refresh", "expires_in": expires_in}
 
 
 def _intercept_allies(ctx, character):
@@ -474,10 +488,15 @@ async def send_open_intercepts(websocket, character):
     """A desk that opens while a fellow member's mark can still be answered (a reload, a
     phone that dropped the tab) gets the offer again, with the seconds left. It was sent
     once, live, so a reload lost it while the server still took the answer (playtest 2,
-    ally-offer-cards-lost-or-stale)."""
+    ally-offer-cards-lost-or-stale). So does each Non-Combatant drive point still open for
+    it (#79: only Behind Me and Premonitions came back)."""
     if character.status != "active" or character.is_dead or character.campaign_id is None:
         return
     now = time.monotonic()
+    for point in _open_points(character.id, now):
+        left = int(point["deadline"] - now)
+        if left >= 1:
+            await websocket.send_json({"type": "ability_mark_offer", "payload": _point_offer(point, left)})
     for (target_id, m_type), about in list(_intercept_for.items()):
         open_ones = _open_times(target_id, m_type)
         if not open_ones:
@@ -644,6 +663,16 @@ async def handle_take_mark(ctx):
         character = ctx.character
         key = character_key(character.id)
         if not manager.active_connections.get(key):
+            # A mark an offer still holds (stored, from before the desk closed) lands first,
+            # as in mark_or_offer, and its offer closes for good: it came back when the desk
+            # opened, after a mark of the same harm had landed (#81). Death Defy's too: the
+            # new mark is not joined to it, since no desk can answer the offer.
+            held = _take_held(ctx, character, commit=True)
+            if held:
+                await manager.broadcast(key, {"type": "mark_offer_closed", "payload": {
+                    "character_id": character.id, "ability": held.get("offer", {}).get("ability"),
+                    "mark_type": held["mark_type"]}})
+                await _land(ctx, character, held, key)
             # No desk is open to answer an offer, and a held mark would wait for one: it
             # lands now, with what follows any mark (the allies' offers, a scar at four)
             await _log(ctx, character, f"The Lightkeeper dealt {character.name} a {m_type.capitalize()} mark. "
@@ -692,14 +721,25 @@ async def handle_resolve_ability_mark(ctx):
         if choice not in ("nerve", "cunning", "intuition"):
             return
         now = time.monotonic()
-        waiting = [t for t in _non_combatant.get(character.id, []) if t > now]
+        waiting = _open_points(character.id, now)
         if not waiting:
             _non_combatant.pop(character.id, None)
             await _refuse(ctx, "resolve_ability_mark", 409, "No Non-Combatant drive point is waiting.")
             return
+        top = getattr(character, f"{choice}_max", 0) or 0
+        if (getattr(character, f"{choice}_current", 0) or 0) >= top:
+            # Nothing would come back: the point waits on, and the desk gets its card again
+            # with the sheet that shows the drive full (#79: it was spent, and logged as
+            # recovered)
+            await _refuse(ctx, "resolve_ability_mark", 409, f"{choice.capitalize()} is already full.")
+            await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
+            left = int(waiting[0]["deadline"] - now)
+            if left >= 1:
+                await manager.broadcast(channel, {"type": "ability_mark_offer",
+                                                  "payload": _point_offer(waiting[0], left)})
+            return
         _non_combatant[character.id] = waiting[1:]
-        setattr(character, f"{choice}_current", min(getattr(character, f"{choice}_max", 0) or 0,
-                                                    (getattr(character, f"{choice}_current", 0) or 0) + 1))
+        setattr(character, f"{choice}_current", (getattr(character, f"{choice}_current", 0) or 0) + 1)
         db.commit()
         await manager.broadcast(channel, {"type": "character_update", "payload": get_char_dict(character)})
         await _log(ctx, character, f"{character.name} recovered 1 {choice.capitalize()} (Non-Combatant).")

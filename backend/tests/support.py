@@ -363,6 +363,10 @@ class WS:
         self.key = str(key)
         self.initial = []
         self.is_gm = None  # set by ws_connect: a GM socket gets no character_update on connect
+        # Connect frames ws_connect read past (read_connect_frames), handed out by recv first
+        self.queued = []
+        # Whether the connect frames ended in an empty activity_history (always sent since #78)
+        self.empty_history = None
 
     def send(self, type_, **payload):
         self.session.send_json({"type": type_, "payload": payload})
@@ -371,6 +375,14 @@ class WS:
         self.session.send_text(text)
 
     def recv(self, timeout=5.0):
+        if self.queued:
+            msg = self.queued.pop(0)
+            if isinstance(msg, Closed):
+                raise msg
+            return msg
+        return self._receive(timeout)
+
+    def _receive(self, timeout):
         session = self.session
 
         async def _receive():
@@ -381,6 +393,28 @@ class WS:
         if msg["type"] == "websocket.close":
             raise Closed(msg.get("code"))
         return json.loads(msg["text"])
+
+    def read_connect_frames(self, timeout=5.0):
+        """Reads up to the activity_history that ends the connect frames (sent on every
+        connect since fix round 8, #78, empty too). An empty one is taken here and noted in
+        empty_history, so a test counting frames sees what it saw when an empty history sent
+        nothing; the frames before it, and a history with lines, are handed out by recv as
+        they came."""
+        while True:
+            try:
+                msg = self._receive(timeout)
+            except TimeoutError:
+                return
+            except Closed as closed:
+                self.queued.append(closed)
+                return
+            if msg["type"] == "activity_history" and not msg["payload"]["entries"]:
+                self.empty_history = True
+                return
+            self.queued.append(msg)
+            if msg["type"] == "activity_history":
+                self.empty_history = False
+                return
 
     def drain(self, timeout=0.05):
         """Everything already queued for this client."""
@@ -488,6 +522,7 @@ def ws_connect(client, key, wait_disconnect=True, token=AUTO):
         ws.is_gm = first["type"] != "character_update"
         if not ws.is_gm:
             ws.initial.append(ws.recv())
+        ws.read_connect_frames()
         try:
             yield ws
         finally:

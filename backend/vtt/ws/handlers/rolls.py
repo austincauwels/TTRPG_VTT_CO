@@ -38,6 +38,7 @@ ACTION_KEYS = ("move", "strike", "control", "sway", "sneak", "hide", "survey", "
 _pending_gilded: dict = {}
 
 NO_CHOICE_WAITING = "No roll is waiting for a die to be kept. Roll again."
+KEEP_FIRST = "Keep a die from your last roll first."
 
 
 def holds_roll(character_id) -> bool:
@@ -133,12 +134,19 @@ async def send_felt_roll(websocket, campaign_id):
     """The Lightkeeper's desk opening again (a reload, another device) is sent the newest
     roll on her felt, marked replayed (it plays no dice): her own as roll_result, or a
     player's as the dice_thrown that put it there, with its outcome as it is now. Her felt
-    used to come back empty (#40)."""
+    used to come back empty (#40). A player's roll its player can no longer burn on (a
+    newer roll of another action, or a secret one, answers a burn now) comes with
+    settled: true, so her felt does not stamp it "Burn open" (#86)."""
     felt = _felt_roll.get(campaign_id)
     if felt is not None:
         kind, payload = felt
+        extra = {}
+        if kind == "table":
+            last = _last_roll.get(payload["character_id"])
+            if last is None or last["action"] != payload["action"] or last.get("secret"):
+                extra["settled"] = True
         await websocket.send_json({"type": "roll_result" if kind == "own" else "dice_thrown",
-                                   "payload": {**payload, "replayed": True}})
+                                   "payload": {**payload, "replayed": True, **extra}})
 
 
 async def _refuse(ctx, action, status, detail):
@@ -495,6 +503,11 @@ async def handle_roll(ctx):
             if act not in ACTION_KEYS:
                 await _refuse(ctx, "roll", 422, "Unknown action.")
                 return
+            # A gilded roll still waits for its die: another roll would replace it (a free
+            # reroll) from a desk that has not seen the choice, a second tab or device (#80)
+            if character.id in _pending_gilded:
+                await _refuse(ctx, "roll", 409, KEEP_FIRST)
+                return
             # Stamina Training's dice are the circle's: read and locked until the commit, so
             # two players cannot take the last one at once
             if "Stamina Training" in mods and camp_id:
@@ -608,7 +621,7 @@ async def handle_roll(ctx):
                 named = f" ({', '.join(used_abilities)})" if used_abilities else ""
                 log_msg = f"{char_name} rolled {act}{named} — {result_val} · {outcome_label} {_dice_text(res)}."
             else:
-                log_msg = f"Lightkeeper rolled — {result_val} · {outcome_label} {_dice_text(res)}."
+                log_msg = f"The Lightkeeper rolled — {result_val} · {outcome_label} {_dice_text(res)}."
 
             # The gilded refresh and Well-Read follow the dice, so they apply to a secret
             # roll too (RULES_CHECK.md item 6); only its log line stays with the roller

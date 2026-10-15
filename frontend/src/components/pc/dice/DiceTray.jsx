@@ -33,8 +33,9 @@ const rollKey = (roll) =>
 // counts, then the outcome stamp. Player inks are dark by design, so the name sits on
 // paper, not on the felt. The red number is a numbering machine's, for the look only. A
 // secret roll (the Lightkeeper's Secret) says so under the name: no other desk was told
-// of it, and its line in the log is on this desk alone.
-const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, rating, character, onDieClick }) => {
+// of it, and its line in the log is on this desk alone. On the Lightkeeper's felt a
+// player's roll they can still burn on is stamped "Burn open" beside their name (#86).
+const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, rating, character, onDieClick, burnOpen }) => {
   const outcomeKey = lastRoll.outcome || keptDie?.outcome || (keptDie ? outcomeForKept(keptDie.value, lastRoll.dice) : null);
   const outcome = OUTCOME[outcomeKey];
   const key = rollKey(lastRoll);
@@ -42,15 +43,29 @@ const ResultSlip = ({ lastRoll, rollerName, rollerInk, gildedPending, keptDie, r
     <div role="status" data-result-slip="" tabIndex={-1} className="hand-placed relative -mt-1 mx-2 bg-parchment text-ink px-4 pt-2.5 pb-3 shadow-[2px_6px_12px_rgba(0,0,0,0.6)] border border-sepia/30 rounded-sm"
       style={{ '--tilt': `${tiltFor(`slip-${key}`, { min: 0.4, max: 1 })}deg` }}>
       <div className="flex items-baseline justify-between gap-3">
-        <span title={rollerName} className="font-serif font-bold text-lg leading-snug line-clamp-2 break-words min-w-0" style={{ color: rollerInk || 'rgb(var(--c-ink))' }}>{rollerName}</span>
+        <span className="flex flex-wrap items-center gap-x-2 min-w-0">
+          <span title={rollerName} className="font-serif font-bold text-lg leading-snug line-clamp-2 break-words min-w-0" style={{ color: rollerInk || 'rgb(var(--c-ink))' }}>{rollerName}</span>
+          {burnOpen && (
+            <span data-burn-open="" className="inline-flex">
+              <InfoTerm
+                label={<span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood border border-oxblood/70 rounded-sm px-1.5 py-px">Burn open</span>}
+                ariaLabel="Burn open: what it means"
+                text="They can still burn a resistance and reroll. An open roll from you ends it."
+                slipClassName="left-0 top-full mt-1 w-[min(16rem,calc(100vw-2.5rem))]" />
+            </span>
+          )}
+        </span>
         <SerialNo value={serialFor(key)} className="shrink-0" />
       </div>
       {lastRoll.is_secret && (
+        // One line for a screen reader ("Secret: only you saw this"): the label's own colon
+        // was read apart from it, "Secret : only you saw this" (88.u26)
         <p data-secret-roll="" className="mb-0.5 flex flex-wrap items-baseline gap-x-1.5 font-serif italic text-sm leading-snug text-sepia">
-          <span className="not-italic font-sans text-xs font-black uppercase tracking-widest border border-sepia/70 rounded-sm px-1.5 py-px">
-            Secret<span className="sr-only">: </span>
+          <span className="sr-only">Secret: only you saw this</span>
+          <span aria-hidden="true" className="not-italic font-sans text-xs font-black uppercase tracking-widest border border-sepia/70 rounded-sm px-1.5 py-px">
+            Secret
           </span>
-          only you saw this
+          <span aria-hidden="true">only you saw this</span>
         </p>
       )}
       <p className="font-serif text-base leading-snug">{rollPoolText(lastRoll, keptDie, rating)}</p>
@@ -157,6 +172,7 @@ const FocusFollowsRoll = ({ gildedPending }) => {
 export const DiceTray = forwardRef(({
   lastRoll, isRolling, gildedPending, dieSkews, getIsCandidate, onDieClick,
   rollerName, rollerInk, keptDie, rating = null, character = null, rollWaiting = false, rollError = null, rollHint = false,
+  burnOpen = false,
 }, ref) => (
   <div ref={ref} className="xl:shrink-0">
   <FocusFollowsRoll gildedPending={!!gildedPending} />
@@ -182,7 +198,8 @@ export const DiceTray = forwardRef(({
 
               if (gildedPending) {
                 if (isCandidate) {
-                  extraClasses = 'animate-liftShimmy hover:animate-none cursor-pointer ring-2 ring-cream/60 hover:ring-cream hover:scale-110 transition-transform';
+                  // Still under a pointer, and on a touch screen, which has none (88.5)
+                  extraClasses = 'animate-liftShimmy hover:animate-none [@media(hover:none)]:animate-none motion-reduce:animate-none cursor-pointer ring-2 ring-cream/60 hover:ring-cream hover:scale-110 transition-transform';
                   clickHandler = () => onDieClick(die, idx);
                 } else {
                   extraClasses = 'opacity-35';
@@ -222,7 +239,7 @@ export const DiceTray = forwardRef(({
     </div>
   </div>
   {!isRolling && lastRoll?.dice && (
-    <ResultSlip lastRoll={lastRoll} rollerName={rollerName} rollerInk={rollerInk} gildedPending={gildedPending} keptDie={keptDie} rating={rating} character={character} onDieClick={onDieClick} />
+    <ResultSlip lastRoll={lastRoll} rollerName={rollerName} rollerInk={rollerInk} gildedPending={gildedPending} keptDie={keptDie} rating={rating} character={character} onDieClick={onDieClick} burnOpen={burnOpen} />
   )}
   {!isRolling && rollError && <RollErrorSlip message={rollError} afterSlip={!!lastRoll?.dice} />}
   </div>

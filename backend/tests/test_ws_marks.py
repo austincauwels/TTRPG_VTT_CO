@@ -831,7 +831,7 @@ def test_non_combatant_lets_each_ally_recover_a_drive_point(client):
     camp = support.new_campaign(client)
     doctor = support.active_member(client, camp, specialty_ability="Non-Combatant", body_marks=3)
     ally = support.active_member(client, camp, nerve_max=3, nerve_current=1)
-    other = support.active_member(client, camp, cunning_max=3, cunning_current=3)
+    other = support.active_member(client, camp, cunning_max=3, cunning_current=3, nerve_max=3, nerve_current=2)
     stranger = support.active_member(client, support.new_campaign(client))
     with support.ws_connect(client, doctor["id"]) as wd, support.ws_connect(client, ally["id"]) as wa, \
             support.ws_connect(client, other["id"]) as wo, support.ws_connect(client, stranger["id"]) as wx:
@@ -850,8 +850,17 @@ def test_non_combatant_lets_each_ally_recover_a_drive_point(client):
         assert wa.sync() == [{"type": "action_rejected", "payload": {
             "action": "resolve_ability_mark", "status": 409, "detail": "No Non-Combatant drive point is waiting."}}]
         wo.drain()
-        wo.send("resolve_ability_mark", ability="Non-Combatant", choice="cunning")   # capped at the maximum
-        assert wo.sync()[0]["payload"]["cunning_current"] == 3
+        # A full drive takes nothing back: refused, and the point waits on, its card sent
+        # again with the sheet (#79: it was spent, and logged as recovered)
+        wo.send("resolve_ability_mark", ability="Non-Combatant", choice="cunning")
+        msgs = wo.sync()
+        assert support.types(msgs) == ["action_rejected", "character_update", "ability_mark_offer"]
+        assert msgs[0]["payload"] == {"action": "resolve_ability_mark", "status": 409,
+                                      "detail": "Cunning is already full."}
+        assert msgs[1]["payload"]["cunning_current"] == 3
+        assert msgs[2]["payload"]["ability"] == "Non-Combatant" and 100 < msgs[2]["payload"]["expires_in"] <= 120
+        wo.send("resolve_ability_mark", ability="Non-Combatant", choice="nerve")
+        assert support.types(wo.sync()) == ["character_update", "activity_log"]
         # The fourth mark, which incapacitates, is answered too
         wd.send("take_mark", mark_type="body", is_from_enemy=False)
         wd.sync()
