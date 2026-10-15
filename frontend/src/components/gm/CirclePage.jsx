@@ -39,7 +39,7 @@ import { CirclePaper, CirclePapers } from '../shared/CirclePaper';
 import { TickMark, CrossMark } from '../shared/InkMarks';
 import { tallyReports, tallyOf, unfiledNames, notFiledLine, reportsDue } from '../../game/illumination';
 import { reportingMembers } from '../../game/roster';
-import { CIRCLE_QUESTIONS, insigniaLabel, relationshipsAmong, answererOf } from '../../game/circleFormation';
+import { CIRCLE_QUESTIONS, insigniaLabel, relationshipsAmong, answererOf, nameOnTheSeal } from '../../game/circleFormation';
 import { InsigniaStamp } from './desk/InsigniaStamp';
 import { IlluminationRing } from '../shared/IlluminationRing';
 
@@ -153,6 +153,16 @@ const ILLUMINATION_KEYS = {
   Occultist:  ['Consult Arcane Texts', 'Collect Oddities', 'Act Bizarre'],
 };
 
+// When a report was amended, as the card's front prints it: the time on the day it was
+// filed, the day and the time after
+const amendedAt = (iso) => {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const time = at.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return at.toDateString() === new Date().toDateString()
+    ? time : `${at.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
+};
+
 // Each investigator's report, a card that turns over (her original flip). The front is the
 // button that turns it; the back is read as it is written, for a screen reader too: a
 // heading, then the investigator's keys as a list, each with "Ticked" or "Not ticked" beside
@@ -204,7 +214,9 @@ function ReportFlipCard({ inv, report }) {
           style={face(!flipped)}
           role="button"
           tabIndex={0}
-          aria-label={`${inv.name}: ${report ? 'read the report' : 'no report yet, turn the card'}`}
+          aria-label={`${inv.name}: ${report
+            ? `read the report${report.amended_at ? `, amended ${amendedAt(report.amended_at)}` : ''}${report.note ? ', line filed' : ''}`
+            : 'no report yet, turn the card'}`}
           onClick={() => turn()}
           onKeyDown={onActivateKey(() => turn())}
           className={`${paper} cursor-pointer px-4 pt-3 pb-2.5 items-center gap-2`}
@@ -226,6 +238,15 @@ function ReportFlipCard({ inv, report }) {
             </span>
           ) : (
             <EmptyStamp label="No report yet" tilt={-2} className="mt-1" />
+          )}
+          {/* An amended report says so, with when (playtest 4, report-card-no-amended-mark),
+              and a report with a line on what happened says so on the front, where the line
+              itself is on the back (report-line-behind-flip) */}
+          {(report?.amended_at || report?.note) && (
+            <span className="flex flex-wrap justify-center gap-x-3 gap-y-0.5 font-sans font-bold text-xs uppercase tracking-wider text-sepia">
+              {report.amended_at && <span>Amended {amendedAt(report.amended_at)}</span>}
+              {report.note && <span>Line filed</span>}
+            </span>
           )}
           <TurnOverMark className="mt-auto text-sepia/70" />
         </div>
@@ -335,6 +356,12 @@ export const CirclePage = () => {
   const memberName = (id) => investigators.find(i => i.id === id)?.name || 'Someone';
 
   const trackFull = illum >= TRACK_SIZE;
+  // Until the seal the charter is the formation papers': the name leading there, the
+  // chapter house the players wrote, the ability still to be voted for. The server refuses
+  // the Lightkeeper's changes to it until then (issue #74: her chapter house replaced theirs)
+  const sealed = !!circle?.is_finalized;
+  const papersName = nameOnTheSeal(circleCreation?.votes)?.value || '';
+  const papersHouse = (circleCreation?.backstoryAnswers?.chapter_house || '').trim();
 
   // The report's worth: the circle's questions, answered here once, and the keys the
   // investigators' reports filed (game/illumination.js). The ticks and the added total are
@@ -374,9 +401,15 @@ export const CirclePage = () => {
 
       {/* I. The circle's charter */}
       <CirclePaper kind="charter" tilt={-0.4} aria-label="Circle charter">
-        <div className="flex items-center gap-2 -mt-1 mb-3" aria-hidden="true">
+        {/* The marks are printed for the eye only (each is aria-hidden) */}
+        <div className="relative flex flex-wrap items-center gap-x-2 -mt-1 mb-3">
           <PrinterMark size={13} />
           <FormLine>Form C.O. 3 · Circle charter</FormLine>
+          {!sealed && (
+            <InfoTerm label="Not sealed yet" text="Decided in the formation papers until the seal."
+              anchored={false} slipClassName="left-0 right-0 top-full mt-1"
+              className="font-sans text-xs font-black uppercase tracking-widest text-sepia" />
+          )}
           <SerialNo value={serialFor(`circle-${circle?.id ?? ''}`)} className="ml-auto" />
         </div>
         <div className="flex gap-4 items-start">
@@ -387,26 +420,38 @@ export const CirclePage = () => {
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 Circle name
               </span>
-              <EditableLine
-                value={circle?.name || ''}
-                label="Circle name"
-                onSave={name => updateCircle({ circle_id: circId, name })}
-                displayClassName="text-xl font-serif font-black text-ink uppercase leading-tight max-w-full [overflow-wrap:anywhere]"
-                inputClassName="mt-1 w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-2xl px-3 py-1 focus:border-oxblood uppercase"
-              />
+              {sealed ? (
+                <EditableLine
+                  value={circle?.name || ''}
+                  label="Circle name"
+                  onSave={name => updateCircle({ circle_id: circId, name })}
+                  displayClassName="text-xl font-serif font-black text-ink uppercase leading-tight max-w-full [overflow-wrap:anywhere]"
+                  inputClassName="mt-1 w-full bg-cream border border-dashed border-parchment-deep text-ink font-serif text-2xl px-3 py-1 focus:border-oxblood uppercase"
+                />
+              ) : papersName ? (
+                <div className="mt-0.5 text-xl font-serif font-black text-ink uppercase leading-tight max-w-full [overflow-wrap:anywhere]">{papersName}</div>
+              ) : (
+                <div className="mt-1"><BlankEntry label="Not named yet" /></div>
+              )}
             </div>
             <div>
               <span className="block font-sans text-xs font-black uppercase tracking-widest text-sepia">
                 Chapter house
               </span>
-              <EditableLine
-                multiline
-                value={circle?.chapter_house_location || ''}
-                label="Chapter house"
-                onSave={place => updateCircle({ circle_id: circId, chapter_house_location: place })}
-                displayClassName="font-serif text-sm text-oxblood italic leading-snug max-w-full [overflow-wrap:anywhere] whitespace-pre-line"
-                inputClassName="mt-0.5 w-full bg-cream border border-dashed border-parchment-deep text-oxblood font-serif text-sm px-3 py-1.5 focus:border-oxblood resize-none italic"
-              />
+              {sealed ? (
+                <EditableLine
+                  multiline
+                  value={circle?.chapter_house_location || ''}
+                  label="Chapter house"
+                  onSave={place => updateCircle({ circle_id: circId, chapter_house_location: place })}
+                  displayClassName="font-serif text-sm text-oxblood italic leading-snug max-w-full [overflow-wrap:anywhere] whitespace-pre-line"
+                  inputClassName="mt-0.5 w-full bg-cream border border-dashed border-parchment-deep text-oxblood font-serif text-sm px-3 py-1.5 focus:border-oxblood resize-none italic"
+                />
+              ) : papersHouse ? (
+                <div className="mt-0.5 font-serif text-sm text-oxblood italic leading-snug max-w-full [overflow-wrap:anywhere] whitespace-pre-line">{papersHouse}</div>
+              ) : (
+                <div className="mt-1"><BlankEntry label="Not written yet" /></div>
+              )}
             </div>
           </div>
 
@@ -422,7 +467,10 @@ export const CirclePage = () => {
 
         {/* Illumination Tracker */}
         <div className="mt-3 pt-3 border-t border-ink/10">
-          <h3 className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
+          {/* The heading's name is the count: read from its content it took in the i's
+              whole slip (playtest 4, illumination-heading-name). The i keeps its own name. */}
+          <h3 aria-label={`Illumination ${Math.min(illum, TRACK_SIZE)} of ${TRACK_SIZE}${illum > TRACK_SIZE ? `, ${illum - TRACK_SIZE} carried over` : ''}`}
+            className="font-sans text-xs font-black uppercase tracking-widest text-sepia mb-2 flex items-center gap-1.5">
             <SafeIcon name="GiCandleLight" size={11} className="text-candle-gold" />
             <InfoTerm label="Illumination" text="The gold-ringed pips are milestones (3, 6 and 9); the track fills at 12. A milestone matters only to a circle with Resource Management." />
             <span className="ml-auto font-mono tabular-nums text-sm font-normal normal-case tracking-normal text-sepia">
@@ -441,11 +489,13 @@ export const CirclePage = () => {
             </button>
           )}
           <IlluminationRing illum={illum} onPick={setIllum} />
-          {/* Points awarded one at a time can pass 12: "Any leftover Illumination counts
-              toward your next advancement cycle" (rulebook p. 55), which the advance keeps */}
+          {/* +1 stops at the full track (fix round 8, decision 8): at 12 it stored 13 behind
+              "12 / 12". Add N and Meticulous Notes still carry over past 12: "Any leftover
+              Illumination counts toward your next advancement cycle" (rulebook p. 55), which
+              the advance keeps */}
           <div className="mt-2 flex items-center gap-2">
-            <button type="button" onClick={() => setIllum(illum + 1)}
-              className="[@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink">
+            <button type="button" onClick={() => setIllum(illum + 1)} disabled={illum >= TRACK_SIZE}
+              className="[@media(pointer:coarse)]:min-h-[44px] [@media(pointer:coarse)]:min-w-[44px] px-2 py-1 text-xs font-sans font-black uppercase tracking-widest border border-ink/30 rounded-sm hover:border-ink disabled:opacity-40">
               +1 Illumination
             </button>
             <button type="button" onClick={() => setIllum(Math.max(0, illum - 1))} disabled={illum <= 0}
@@ -461,7 +511,9 @@ export const CirclePage = () => {
           <span className="font-sans text-xs font-black uppercase tracking-widest text-oxblood">
             Circle ability
           </span>
-          {circle?.circle_ability ? (
+          {!sealed ? (
+            <p className="mt-1 font-serif text-sm italic text-sepia leading-snug">Chosen by vote</p>
+          ) : circle?.circle_ability ? (
             <div className="mt-1 space-y-1">
               {circle.circle_ability.split('\n').filter(Boolean).map((ability, i) => (
                 <p key={i} className="font-serif text-sm text-ink/90 leading-snug">
@@ -550,6 +602,24 @@ export const CirclePage = () => {
                 <span className="font-sans font-black text-xs uppercase tracking-widest text-ink">Total +{tally.total}</span>
                 {thisTally.added != null ? (
                   <span role="status" className="font-serif italic text-sm text-seal-green">Added {thisTally.added} Illumination</span>
+                ) : notFiled ? (
+                  // While reports are unfiled the add asks first: it goes on the track once, and
+                  // keys filed later do not count (fix round 8, decision 7). With every report
+                  // filed it stays one press.
+                  <ConfirmAction
+                    className="contents"
+                    hintClassName="basis-full justify-end"
+                    onConfirm={addTally}
+                    disabled={tally.total <= 0}
+                    armedHint={`Press again to add ${tally.total} Illumination without their keys.`}
+                    renderButton={(armed, props) => (
+                      <button {...props}
+                        className={`min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1.5 font-sans text-xs font-black uppercase tracking-widest border rounded-sm disabled:opacity-40 ${
+                          armed ? 'bg-oxblood text-cream border-ink hover:brightness-125' : 'bg-ink text-cream border-ink hover:bg-oxblood'}`}>
+                        {armed ? 'Add' : `Add ${tally.total} Illumination`}
+                      </button>
+                    )}
+                  />
                 ) : (
                   <button type="button" onClick={addTally} disabled={tally.total <= 0}
                     className="min-h-[36px] [@media(pointer:coarse)]:min-h-[44px] px-3 py-1.5 font-sans text-xs font-black uppercase tracking-widest bg-ink text-cream border border-ink rounded-sm hover:bg-oxblood disabled:opacity-40">
