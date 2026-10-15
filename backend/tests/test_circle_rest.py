@@ -397,11 +397,18 @@ def test_finalize_tie_goes_to_the_first_vote_cast(client, first, second):
 
 
 def test_finalize_keeps_an_existing_chapter_house(client):
+    """Flipped (issue #74, fix round 8 decision 2): a chapter house the Lightkeeper had
+    written replaced the players' answer at the seal. The players' answer wins; hers
+    stays only when they wrote nothing."""
     camp, _, cid = _setup(client, members=1)
     support.update(Circle, cid, chapter_house_location="Tower", backstory_answers={"chapter_house": "Mill"})
     body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
-    assert body["chapter_house_location"] == "Tower"
+    assert body["chapter_house_location"] == "Mill"
     assert body["backstory_answers"] == {"chapter_house": "Mill"}
+    camp, _, cid = _setup(client, members=1)
+    support.update(Circle, cid, chapter_house_location="Tower", backstory_answers={"chapter_house": "  "})
+    body = client.post("/campaign/finalize-roster", json={"campaign_id": camp["id"], "circle_id": cid}, headers=support.as_gm(camp)).json()
+    assert body["chapter_house_location"] == "Tower"
 
 
 def test_sealing_the_circle_is_logged(client):

@@ -596,7 +596,9 @@ def test_gm_advance_circle(client):
         gm.send("gm_advance_circle", role="GM", circle_ability="Seekers")
         msgs = gm.sync()
         assert support.types(msgs) == ["member_update", "activity_log", "circle_advanced"]
-        assert msgs[1]["payload"] == {"message": "The Moths has advanced and gained Seekers!", "log_type": "field"}
+        # The line names the refill (fix round 8, 88.10): 1 plus the one member
+        assert msgs[1]["payload"] == {"message": "The Moths has advanced and gained Seekers! "
+                                      "Its Stitch, Refresh and Train are back to 2 each.", "log_type": "field"}
         assert msgs[2]["payload"]["campaign_id"] == camp["id"]
         assert msgs[2]["payload"]["circle"]["circle_ability"] == "Hunters\nSeekers"
         assert msgs[2]["payload"]["circle"]["illumination"] == 2
@@ -870,7 +872,10 @@ def test_gm_reset_character(client):
 # --- update_circle ----------------------------------------------------------
 
 def test_update_circle_as_gm(client):
+    """The charter fields after the seal: before it the formation papers decide them
+    (fix round 8, issue #74; test_fix8_circle.py)."""
     camp, (member,), cid = _campaign(client)
+    support.update(Circle, cid, is_finalized=True)
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("update_circle", role="GM", name="Lanterns", stitch=5, chapter_house_location="Mill",
                 circle_ability="Hunters", tension_clock=1, ignored_field="x")
@@ -1632,7 +1637,8 @@ def test_gm_advance_circle_first_ability_and_unnamed_circle(client):
     with support.ws_connect(client, camp["campaign_code"]) as gm:
         gm.send("gm_advance_circle", role="GM", circle_ability="Seekers")
         msgs = gm.sync()
-        assert msgs[0]["payload"] == {"message": "The Circle has advanced and gained Seekers!", "log_type": "field"}
+        assert msgs[0]["payload"] == {"message": "The Circle has advanced and gained Seekers! "
+                                      "Its Stitch, Refresh and Train are back to 1 each.", "log_type": "field"}
         assert msgs[1]["payload"]["circle"]["circle_ability"] == "Seekers"
         assert msgs[1]["payload"]["circle"]["illumination"] == 0
     assert support.fetch(Circle, cid).circle_ability == "Seekers"
@@ -1668,11 +1674,14 @@ def _report(ch, responses):
 
 
 def _undated(answers):
-    """backstory_answers with each report's submitted_at checked and taken out."""
+    """backstory_answers with each report's submitted_at checked and taken out, and its
+    amended_at when it was amended (fix round 8, 88.u12; test_fix8_circle.py)."""
     reports = {}
     for key, report in answers.get("reports", {}).items():
         report = dict(report)
         assert datetime.fromisoformat(report.pop("submitted_at")).tzinfo is not None
+        if "amended_at" in report:
+            assert datetime.fromisoformat(report.pop("amended_at")).tzinfo is not None
         reports[key] = report
     return {**answers, "reports": reports}
 
@@ -1876,6 +1885,7 @@ def test_spending_and_renaming_and_long_names_are_logged(client):
     (playtest: spending-toggle-not-logged, seal-rename-approvals-not-logged,
     dispatch-log-cut-at-80)."""
     camp, (member,), cid = _campaign(client)
+    support.update(Circle, cid, is_finalized=True)  # a rename waits for the seal (issue #74)
     place = "The flooded crypt beneath the Church of Saint Aldric the Unmourned, Newfaire Old Quarter"
     with support.ws_connect(client, camp["campaign_code"]) as gm, support.ws_connect(client, member["id"]) as wm:
         gm.send("gm_toggle_resource_edit", circle_id=cid)

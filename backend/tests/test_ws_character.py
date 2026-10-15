@@ -475,11 +475,14 @@ def test_spend_refresh_and_train(client):
 
 
 def test_spend_rejections_are_silent(client):
+    """Flipped in part (fix round 8, decision 9): a spend while spending is locked was
+    silent; it is refused with why. The others stay silent."""
     camp, member, cid = _resource_setup(client, editable=False)
     with support.ws_connect(client, member["id"]) as ws:
         ws.send("spend_resource", resource_type="stitch")
         ws.send("spend_resource", resource_type="gold")
-        assert ws.sync() == []
+        assert ws.sync() == [{"type": "action_rejected", "payload": {
+            "action": "spend_resource", "status": 409, "detail": "Spending is locked until the Lightkeeper opens it."}}]
     camp, member, cid = _resource_setup(client)
     support.update(Circle, cid, stitch=0)
     with support.ws_connect(client, member["id"]) as ws:
