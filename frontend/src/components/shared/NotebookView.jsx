@@ -45,7 +45,7 @@ const LINED_PAPER = {
 // The contents' lines: each entry is one line of this height, with this gap. Below sm a
 // title may take two lines, and the count of lines that fit allows for that.
 const TOC_ROW = 44;
-const TOC_ROW_NARROW = 66;
+const TOC_ROW_NARROW = 60; // two lines of the 20px title at leading-normal (30px each), measured on a phone
 const TOC_GAP = 6;
 const NARROW_TOC = '(max-width: 639px)';
 
@@ -1196,6 +1196,9 @@ const Notebook = ({ isGM: isGMProp = null, fit = false, draftKey }) => {
                   className={`flex-1 min-h-0 overflow-y-auto custom-scrollbar flex flex-col pr-1 ${tocTurn ? `toc-turn toc-turn-${tocTurn.dir}` : ''}`}
                   style={{ gap: TOC_GAP }}
                 >
+                  {filteredEntries.length === 0 && (
+                    <li className="px-2 font-serif italic text-base text-sepia">No field entries yet.</li>
+                  )}
                   {tocLines.map(entry => {
                     const canDelete = isGM
                       ? entry.author_type === 'gm'

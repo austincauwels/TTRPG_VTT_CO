@@ -1,6 +1,4 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { PlayerRosterCard } from '../PlayerRosterCard';
-import { samePlayerOf } from './CorrespondenceStack';
 
 // Join requests the Lightkeeper has already been shown, kept in this browser per campaign,
 // so a request pops up once and not again on a reload. The newest few hundred are enough.
@@ -37,48 +35,46 @@ export const useNewRequests = (campaignId, pending, inView) => {
   return { fresh: pending.filter((p) => !seen.has(p.id)), markSeen };
 };
 
-// A join request that comes in pops up over the desk (issue #66.1, decision 6), at the foot
-// of the screen, without taking the focus from what the Lightkeeper is doing: the request's
-// card with Approve, View sheet and Reject as on the Requests page, Later to put it away
-// (it stays on the Requests page, counted on the tab), and how many more wait. A screen
-// reader hears "Join request from Mara Lowe." from the status line the desk keeps. It lies
-// under the phone drawer and every dialog (z 75; the drawer is 80).
-export const JoinRequestPopup = ({ request, campaignRoster, more = 0, onApprove, onReject, onView, onLater, onAll, busy = false, error = '' }) => (
-  <section
-    aria-label="Join request"
-    className="fixed z-[75] bottom-3 left-3 right-3 md:left-auto md:right-5 md:bottom-5 md:w-[26rem] max-h-[calc(100dvh-24px)] overflow-y-auto animate-fadeIn"
-  >
-    <div className="bg-gm-night border border-moonlight-steel/50 rounded-sm px-3 pt-2.5 pb-3 shadow-[0_14px_36px_rgba(0,0,0,0.85)]">
-      <div className="flex items-center justify-between gap-3 mb-2">
-        <h2 className="font-sans text-xs font-black uppercase tracking-widest text-moonlight-steel">New join request</h2>
-        {more > 0 && <span className="font-serif italic text-sm text-parchment-deep">{more} more waiting</span>}
+// A join request that comes in shows as a slim toast over the desk (issue #66.1, decision 6;
+// fix round 8, 88.16), at the foot of the screen, without taking the focus from what the
+// Lightkeeper is doing: the investigator's name and role in one line, with Approve, View
+// (the sheet, and Reject behind it on the Requests page) and Later to put it away (it stays
+// on the Requests page, counted on the tab), and how many more wait. A screen reader hears
+// "Join request from Mara Lowe." from the status line the desk keeps. It lies under the
+// phone drawer and every dialog (z 75; the drawer is 80).
+const toastButton = 'min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest rounded transition-colors';
+export const JoinRequestPopup = ({ request, more = 0, onApprove, onView, onLater, busy = false, error = '' }) => {
+  const who = request.name || 'An investigator';
+  const kind = [request.role_class || request.role, request.specialty].filter(Boolean).join(' · ');
+  return (
+    <section
+      aria-label="Join request"
+      className="fixed z-[75] bottom-3 left-3 right-3 md:left-auto md:right-5 md:bottom-5 md:w-80 animate-fadeIn"
+    >
+      <div className="bg-gm-night border border-moonlight-steel/50 rounded-sm px-3 py-2 shadow-[0_14px_36px_rgba(0,0,0,0.85)]">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="flex-1 min-w-[7rem] font-serif text-base text-cream leading-snug truncate">
+            <span className="font-bold">{who}</span>
+            {kind && <span className="text-parchment-deep"> · {kind}</span>}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button type="button" onClick={() => onApprove(request.id)} disabled={busy}
+              className={`${toastButton} bg-oxblood text-cream border border-ink hover:brightness-125 disabled:opacity-50 disabled:cursor-wait`}>
+              Approve
+            </button>
+            <button type="button" onClick={() => onView(request)}
+              className={`${toastButton} text-cream border border-moonlight-steel/60 hover:bg-gm-slate`}>
+              View
+            </button>
+            <button type="button" onClick={onLater}
+              className={`${toastButton} text-moonlight-steel hover:text-cream`}>
+              Later
+            </button>
+          </div>
+        </div>
+        {more > 0 && <p className="font-serif italic text-sm text-parchment-deep mt-0.5">{more} more waiting</p>}
+        {error && <p role="alert" className="font-serif text-base text-oxblood-lit mt-1">{error}</p>}
       </div>
-      <PlayerRosterCard
-        key={request.id}
-        investigator={request}
-        onStamp={() => onApprove(request.id)}
-        onReject={() => onReject(request.id)}
-        onView={() => onView(request)}
-        busy={busy}
-        samePlayer={samePlayerOf(campaignRoster, request)}
-      />
-      {error && <p role="alert" className="font-serif text-base text-oxblood-lit mt-2">{error}</p>}
-      <div className="mt-2 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onAll}
-          className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-1 font-sans font-bold text-xs uppercase tracking-widest text-moonlight-steel hover:text-cream underline decoration-dotted decoration-moonlight-steel/50 underline-offset-4 transition-colors"
-        >
-          All requests
-        </button>
-        <button
-          type="button"
-          onClick={onLater}
-          className="min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 font-sans font-bold text-xs uppercase tracking-widest text-cream bg-gm-slate/70 hover:bg-gm-slate border border-moonlight-steel/60 hover:border-moonlight-steel rounded transition-colors"
-        >
-          Later
-        </button>
-      </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};

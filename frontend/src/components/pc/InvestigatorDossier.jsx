@@ -876,7 +876,8 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
             Edit sheet
           </button>
         )}
-        {canEdit && sheetEditError && (
+        {/* While the reopened editor holds the draft it shows the reason itself: said once */}
+        {canEdit && sheetEditError && !(showEditor && restoreDraft) && (
           <p role="alert" className="basis-full font-serif text-base text-oxblood leading-snug">{sheetEditError}</p>
         )}
       </div>
