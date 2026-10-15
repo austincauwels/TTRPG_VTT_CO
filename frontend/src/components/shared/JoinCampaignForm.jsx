@@ -109,7 +109,7 @@ export const JoinCampaignForm = ({
       {error && <p role="alert" className="font-serif text-base text-oxblood">{error}</p>}
 
       {/* 44px on every touch screen, a phone's too, like the rest of the creator that opens it */}
-      <div className="flex gap-2 justify-end sm:justify-between">
+      <div className={`flex gap-2 justify-end ${onCancel ? 'sm:justify-between' : ''}`}>
         {onCancel && (
           <button type="button" onClick={onCancel}
             className="px-4 py-2.5 [@media(pointer:coarse)]:min-h-[44px] font-sans font-bold text-sm uppercase tracking-widest text-sepia hover:text-oxblood transition-colors rounded border border-sepia/30">
