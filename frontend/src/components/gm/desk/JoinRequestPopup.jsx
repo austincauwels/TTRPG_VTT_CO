@@ -43,7 +43,7 @@ export const useNewRequests = (campaignId, pending, inView) => {
 // "Join request from Mara Lowe." from the status line the desk keeps. It lies under the
 // phone drawer and every dialog (z 75; the drawer is 80).
 const toastButton = 'min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-3 font-sans text-xs font-black uppercase tracking-widest rounded transition-colors';
-export const JoinRequestPopup = ({ request, more = 0, onApprove, onView, onLater, busy = false, error = '' }) => {
+export const JoinRequestPopup = ({ request, more = 0, samePlayer = '', onApprove, onView, onLater, busy = false, error = '' }) => {
   const who = request.name || 'An investigator';
   const kind = [request.role_class || request.role, request.specialty].filter(Boolean).join(' · ');
   return (
@@ -72,6 +72,7 @@ export const JoinRequestPopup = ({ request, more = 0, onApprove, onView, onLater
             </button>
           </div>
         </div>
+        {samePlayer && <p className="font-serif text-sm font-bold text-oxblood-lit mt-0.5">{samePlayer === 'active' ? 'Already has an investigator here.' : 'Sent another request too.'}</p>}
         {more > 0 && <p className="font-serif italic text-sm text-parchment-deep mt-0.5">{more} more waiting</p>}
         {error && <p role="alert" className="font-serif text-base text-oxblood-lit mt-1">{error}</p>}
       </div>

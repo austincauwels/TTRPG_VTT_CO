@@ -8,7 +8,7 @@ import { GMCharacterSheet } from './GMCharacterSheet';
 import { DiceVault } from '../pc/DiceVault';
 import { NotebookView } from '../shared/NotebookView';
 import { GMDeskHeader } from './desk/GMDeskHeader';
-import { CorrespondenceStack } from './desk/CorrespondenceStack';
+import { CorrespondenceStack, samePlayerOf } from './desk/CorrespondenceStack';
 import { JoinRequestPopup, useNewRequests } from './desk/JoinRequestPopup';
 import { FinalizeRosterSlip, FinalizedSlip } from './desk/FinalizeRosterSlip';
 import { CircleFormationStatus } from './desk/CircleFormationStatus';
@@ -390,6 +390,7 @@ export const OperationsPanel = () => {
         <JoinRequestPopup
           request={popup}
           more={fresh.length - 1}
+          samePlayer={samePlayerOf(campaignRoster, popup)}
           onApprove={handleStamp}
           onView={viewRequest}
           onLater={() => markSeen([popup.id])}
