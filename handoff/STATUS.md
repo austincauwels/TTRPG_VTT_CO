@@ -1,6 +1,6 @@
 # Candela VTT: status and next phase
 
-Updated 15 October 2026 (Pacific), after fix round 8. This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
+Updated 15 October 2026 (Pacific), after fix round 8 and its merge. This file is the hand-off between chats. A new chat starts here instead of carrying a long conversation forward.
 
 Resume: none
 
@@ -26,7 +26,7 @@ Open problems live in GitHub issues; this file only points at them.
 - Labels: `bug`, `ux`, `enhancement` (ideas), `known` (accepted for now). #16 "Behaviour kept on purpose (not bugs)" lists Robert's design decisions: read it before calling something a bug.
 - File an issue for each confirmed bug and medium UX item not fixed in the same phase; low UX items go in one checklist issue per round. A fix PR closes its issues with "Fixes #n" lines; tick checklist lines by hand.
 - **Robert files issues by hand from the live site**, often several in a burst. Read new issues and comments at the start of each phase, and again before launching a workflow.
-- **Open now:** #72 to #88 until PR 89 merges. After the merge: #79 (a Non-Combatant card open during a restart still goes with no word), #88 (tick the lines PR 89 lists; 14 unverified lines and 2 ideas stay, see `triage8.md`). Older: #45 (45.16 only), #60 (60.10, 60.14, 60.24 and its Ideas), ideas #27 to #32 and #34.
+- **Open now:** #79 (a Non-Combatant card open during a restart still goes with no word), #88 (35 lines ticked after PR 89; 16 unverified lines and 2 ideas stay open, two of them partly done and noted on their lines). Older: #45 (45.16 only), #60 (60.10, 60.14, 60.24 and its Ideas), ideas #27 to #32 and #34.
 
 ## Model and effort
 
@@ -50,8 +50,8 @@ What worked for fix rounds 4 to 8: one Opus triage of every issue against main (
 
 ## Where things stand
 
-- **Main is 1bc48a0** (PR 71, fix round 7). **Beta runs 1bc48a0** (deployed 14 October). Live: ask Robert.
-- **PR 89 is open** (branch `claude/fix-round-8`, head after the repair: fd39a1c), not merged. It fixes #72 to #87 except #79's restart case, and most of #88. Full suite 2055 passed, 1 skipped; vite build clean. This session was subscribed to its CI and reviews; a new chat is not, so check CI and comments first.
+- **Main is 1f0fbd4** (PR 89, fix round 8, merged 15 October on Robert's word). **Beta runs 1bc48a0** unless Robert has deployed since: ask him. Live: ask Robert.
+- **PR 89 is merged** (branch `claude/fix-round-8`, head fd39a1c). It fixed #72 to #87 except #79's restart case, and most of #88. Full suite 2055 passed, 1 skipped; CI green; vite build clean.
   - New columns `characters.scar_pending` and `characters.let_in` (added at startup). New refusals on roll, revive_character, submit_assignment_report, update_circle, spend_resource and the Non-Combatant pick; all in WEBSOCKET.md.
   - At deploy: anyone let in before the deploy loses the "Let in" mark (the column starts false).
 - **Record of the round:** `playtest/results/2026-10-15-fix8/` (`decisions8.md`, `triage8.md`, `groups8.json`, `fix8_groups_result.json` with every group's choices, `fix8_final_check_result.json`, `pr_body.md`). Container setup: `playtest/run8/` (`setup_env.sh`, `start_all.sh`).
@@ -61,9 +61,9 @@ What worked for fix rounds 4 to 8: one Opus triage of every issue against main (
 
 ## Next phase: PR 89 follow-up, then the fifth playtest
 
-1. Check PR 89: CI, reviews, comments, new issues. Fix anything red.
-2. Put PR 89's seven "Calls to confirm" to Robert in one short list, with a recommendation each, and wait. Recommended: (1) let an investigator outside any campaign revive itself (no Lightkeeper exists; one line in access.py `_revive`, a test); (2) keep: spending reopens on the next dispatch write; (3) keep: the count follows the player (#41); (4) keep: a secret roll stays secret; (5) keep the toast without Reject; (6) keep the clamp at 12; (7) leave the roll lines' em dash for now (the log format, pinned by tests). Build what he changes on the PR branch, with a test, and push.
-3. When Robert says so, he merges PR 89 and deploys beta. Tick the #88 lines the PR lists, and confirm by grepping beta's served JavaScript for a round 8 string (for example "Reroll: " or "No dispatch yet").
+1. Read new issues and comments. Ask Robert whether beta runs 1f0fbd4 yet (check by grepping beta's served JavaScript for "Reroll: " or "No dispatch yet").
+2. Put PR 89's seven "Calls to confirm" to Robert in one short list, with a recommendation each, and wait. Recommended: (1) let an investigator outside any campaign revive itself (no Lightkeeper exists; one line in access.py `_revive`, a test); (2) keep: spending reopens on the next dispatch write; (3) keep: the count follows the player (#41); (4) keep: a secret roll stays secret; (5) keep the toast without Reject; (6) keep the clamp at 12; (7) leave the roll lines' em dash for now (the log format, pinned by tests). Build what he changes on the session's branch from main, with a test, and open a small PR.
+3. Robert deploys beta himself after any follow-up merges.
 4. Then offer the fifth playtest as a choice (it is big; say the size and ask): a re-check pass of round 8's items on beta by separate agents, then blind play that reaches scars, incapacitation, a death and an advance (seed a circle near a milestone, or play two assignments; run 4 never reached them). Harness: `playtest/run4/` and `playtest/workflows/run4/`, `run4p/`. Recommend it before any new feature work.
 
 ## Start prompt for the next chat
