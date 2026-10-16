@@ -260,7 +260,7 @@ export const MainDeskView = () => {
             <p className="font-serif text-base leading-snug min-w-0 flex-1 basis-60 flex items-center gap-2.5">
               <ScarIcon size={26} className="text-ink" />
               <span><strong className="font-bold">A scar is waiting.</strong>{' '}
-              {character?.name || 'Your investigator'}'s {MARK_NAME[pendingScar.type] || 'mark'} track is full.</span>
+              {character?.name || 'Your investigator'} took a fourth {MARK_NAME[pendingScar.type] ? `${MARK_NAME[pendingScar.type]} ` : ''}mark; the track is cleared and a scar is owed.</span>
             </p>
             <button
               onClick={reopenScar}

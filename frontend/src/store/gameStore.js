@@ -56,6 +56,11 @@ export const ROLL_LOST = 'The table has not answered. The roll may have counted,
 const ROLL_DROPPED = 'The connection dropped before the dice came back. Roll again once the desk is back.';
 const ROLL_FAILED = 'The table could not make that roll. Roll again.';
 const ROLL_REFUSED = 'The table refused that roll.';
+// The roll the tray showed was not sent back as the socket opened: the server no longer
+// holds it, which only a restart does (#78). A die still to be kept is lost; a scored roll
+// stands, but takes no burn
+const ROLL_LOST_RESTART = 'That roll was lost when the server restarted. Roll again.';
+const ROLL_SHUT_RESTART = 'The server restarted, so this roll can no longer be burned or changed.';
 const KEEP_NOT_SENT = 'Not connected to the table, so the kept die was not sent. Keep it again once the desk is back.';
 // Another tab or device has this desk: only "Use this tab" brings it back here
 const ROLL_REPLACED = 'This desk is open in another tab. Press Use this tab to roll here.';
@@ -74,6 +79,9 @@ const newRollId = () => globalThis.crypto?.randomUUID?.()
 let rollSeq = 0;         // the id each roll_result's roll is given on this desk
 let offerSeq = 0;        // the id each ability offer is given, so each gets its own countdown
 let markAnswerOut = false; // the last answer sent was to an offer that held this investigator's own mark
+let pointAnswerOut = false; // the last answer sent was to a Non-Combatant drive point (an ally's offer)
+let rollAskedBack = null; // the id of the open roll the tray showed as the socket opened, until the server sends it back (#78)
+let feltAskedBack = null; // the player's roll the Lightkeeper's felt stamped "Burn open" as her socket opened, until it is sent back (#86)
 let scarFormSeq = 0;     // the id each scar form is opened with, so a new one starts blank
 const nextScarForm = () => { scarFormSeq += 1; return scarFormSeq; };
 
@@ -103,16 +111,21 @@ const withoutOwnOffer = (state) => {
     ? { abilityMarkOffer: queue[0] || null, abilityMarkQueue: queue.slice(1) }
     : { abilityMarkQueue: queue };
 };
-// The allies' offers (Behind Me, Premonitions) that match go, shown or waiting: those for
-// one mark another ally has answered (intercept_offer_closed), or all of them when a
-// socket opens, since the server then sends again those still open, with the time left
-const withoutIntercepts = (state, matches = () => true) => {
-  const gone = (o) => !!o?.intercept && matches(o);
+// The offers that are gone(), shown or waiting
+const withoutOffers = (state, gone) => {
   const queue = state.abilityMarkQueue.filter(o => !gone(o));
   return gone(state.abilityMarkOffer)
     ? { abilityMarkOffer: queue[0] || null, abilityMarkQueue: queue.slice(1) }
     : { abilityMarkQueue: queue };
 };
+// The allies' offers (Behind Me, Premonitions) that match go, shown or waiting: those for
+// one mark another ally has answered (intercept_offer_closed), or all of them when a
+// socket opens, since the server then sends again those still open, with the time left
+const withoutIntercepts = (state, matches = () => true) => withoutOffers(state, o => !!o?.intercept && matches(o));
+// When a socket opens, Non-Combatant's drive points go with them: the server sends again
+// those still open too, and after a restart none, so a card it no longer holds is not left
+// up to be refused (#79)
+const sentAgainOnOpen = (o) => !!o?.intercept || o?.ability === 'Non-Combatant';
 // The marks the sheet draws held (store heldMarks): those an open soak or Death Defy offer
 // holds back (offer), and those on their way onto the sheet (landing). A mark is on its
 // way from when its Undo runs out, or its offer is let go ("Take the mark", the countdown,
@@ -584,7 +597,14 @@ const useGameStore = create(
       // (the server's dice_thrown); the GM's tray shows it. { roll, kept, name, ink_color,
       // action, rating, character_id }
       tableRoll: null,
+      // Whether tableRoll, a player's roll on the Lightkeeper's felt, is settled: the table
+      // moved past it, so its player can no longer burn on it. Her felt stamps a player's
+      // open roll "Burn open" (#86)
+      tableRollSettled: false,
       pendingGildedChoice: null,
+      // Counts the times the tray's roll was found gone (a refused keep, or not sent back
+      // after a restart, #78): the dice vault drops the die it kept locally
+      rollLost: 0,
       showScarModal: false,
       scarModalData: null,
       pendingScar: null,         // { type, characterId }: a scar the player chose to decide later
@@ -636,6 +656,7 @@ const useGameStore = create(
       sheetEditError: null,       // why the server did not store the player's edit of their own sheet
       circleRefusal: null,        // { detail, at }: a gm_update_circle the server refused (the dispatch says so)
       earnBackRefusal: null,      // { detail, at }: a Resource Management earn-back the server refused
+      spendRefusal: null,         // { detail, at }: a circle resource spend the server refused (spending closed)
       // The assignment report form: the ticks not sent yet, by character id, with the
       // assignment they belong to ({ assignment, keyChecks }), kept across tabs and
       // reloads (playtest, key-ticks-lost); whether a report is on its way; why the server
@@ -845,7 +866,17 @@ const useGameStore = create(
           }, HEARTBEAT_TICK_MS);
           if (queuedRoll) sendRoll(set, get, queuedRoll);
           resendMarks(set, get, socket);
-          set(state => withoutIntercepts(state));
+          set(state => withoutOffers(state, sentAgainOnOpen));
+          // The player's roll the tray shows, still open to a keep or a burn: the server
+          // sends it back before the log's history while it holds it (#78)
+          {
+            const st = get();
+            rollAskedBack = !onGmDesk(get) && st.lastRoll && (st.pendingGildedChoice || !st.lastRollSettled)
+              ? st.lastRoll.id : null;
+            // The same on the Lightkeeper's felt: a player's roll still open to a burn
+            feltAskedBack = onGmDesk(get) && st.tableRoll?.character_id != null && !st.tableRollSettled
+              ? st.tableRoll : null;
+          }
           // The GM desk opened again (a drop, a laptop waking, "Use this tab"): the members'
           // changes made while it was down never came, so what it shows loads again. So do
           // the formation papers and the reports: the votes, answers and relationships that
@@ -1005,7 +1036,8 @@ const useGameStore = create(
             if (prev && next && prev.id === next.id && assignmentOf(prev) !== assignmentOf(next)) {
               set(state => {
                 const held = !!(state.pendingGildedChoice && state.lastRoll?.needs_gilded_choice);
-                return { circleCreation: { ...state.circleCreation, reports: {} }, reportError: null,
+                // The felt keeps a player's last roll (decisions_run4), settled (#86)
+                return { circleCreation: { ...state.circleCreation, reports: {} }, reportError: null, tableRollSettled: true,
                   ...(held ? { lastRollSettled: true } : { lastRoll: null, lastRollKept: null, lastRollSettled: false, dismissedPrompts: [], rollError: null }) };
               });
             }
@@ -1019,6 +1051,7 @@ const useGameStore = create(
             if (seen && next && seen.id === next.id && value !== seen.value) playTensionTick(value > seen.value ? value : 1);
           }
           else if (message.type === 'roll_result') {
+            rollAskedBack = null;
             const rollId = message.payload.roll_id;
             // The desk's last roll, sent again as the socket opens (a reload, another
             // device; #40): shown with no dice sound, open to a burn while the server holds
@@ -1089,6 +1122,7 @@ const useGameStore = create(
             const own = p.character_id == null
               ? st.accessSession?.role === 'GM'
               : p.character_id === st.character?.id;
+            feltAskedBack = null;
             if (!own && p.replayed) {
               // The newest roll on the Lightkeeper's felt, sent again as her desk opens
               // (#40): it has landed already, so it plays no dice and settles nothing. The
@@ -1097,11 +1131,13 @@ const useGameStore = create(
               const shown = st.tableRoll;
               set({ tableRoll: shown?.character_id === p.character_id && sameRoll(shown.roll, p.roll)
                 ? { ...shown, kept: p.kept, roll: { ...shown.roll, outcome: p.roll.outcome } }
-                : { ...p, roll: { ...p.roll, replayed: true } } });
+                : { ...p, roll: { ...p.roll, replayed: true } },
+                // Whether its player can still burn on it, as the server says (#86)
+                tableRollSettled: p.settled === true });
             }
             else if (!own) {
               playDiceTumble();
-              if (Array.isArray(p.roll?.dice)) set({ tableRoll: p });
+              if (Array.isArray(p.roll?.dice)) set({ tableRoll: p, tableRollSettled: p.settles === false || p.settled === true });
               // They settle this desk's own roll once its result is known: a gilded roll
               // whose die is still to be kept is decided later, after these dice. A die kept
               // from a roll End Assignment settled does not (settles: false)
@@ -1166,8 +1202,11 @@ const useGameStore = create(
             // The server keeps the dice of a roll that waits for a die to be kept, and reads
             // the kept die from them; with no roll waiting (a server restart, a second
             // choice) the kept die did not count, and the server's words say to roll again
+            // The die this desk kept did not count either: its slip shows the dice with no
+            // outcome and offers no burn (#78; it showed the outcome it worked out itself)
             if (message.payload.action === 'resolve_gilded') {
-              set({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED });
+              set(state => ({ pendingGildedChoice: null, rollError: message.payload.detail || ROLL_REFUSED,
+                lastRollKept: null, lastRollSettled: true, rollLost: state.rollLost + 1 }));
             }
             // An answer to an offer that held the investigator's own mark refused ("In the
             // Trenches cannot soak this mark: ...", after which the held mark lands): the record
@@ -1176,6 +1215,12 @@ const useGameStore = create(
             if (message.payload.action === 'resolve_ability_mark' && markAnswerOut) {
               markAnswerOut = false;
               set({ abilityMarkRefused: message.payload.detail || 'That answer was not taken.' });
+            }
+            // A Non-Combatant drive point no longer waiting (lapsed, or gone with a restart):
+            // its card has gone, so the card's place says why, as for an ally's mark (#79)
+            else if (message.payload.action === 'resolve_ability_mark' && pointAnswerOut) {
+              pointAnswerOut = false;
+              set({ interceptRefused: { ability: 'Non-Combatant', detail: message.payload.detail || 'That answer was not taken.' } });
             }
             // An answer to an ally's mark refused (another ally took it first): its card has
             // gone, so the card's place says why
@@ -1205,6 +1250,10 @@ const useGameStore = create(
             // saved, and the dispatch's receipt says why
             if (message.payload.action === 'gm_update_circle') {
               set({ circleRefusal: { detail: message.payload.detail || 'That change was not made.', at: Date.now() } });
+            }
+            // A circle resource spend refused (spending closed): the Circle page says why
+            if (message.payload.action === 'spend_resource') {
+              set({ spendRefusal: { detail: message.payload.detail || 'Nothing was spent.', at: Date.now() } });
             }
             // An earn-back refused (a full resource, or another desk chose first): the ask says why
             if (message.payload.action === 'gm_earn_back') {
@@ -1265,8 +1314,29 @@ const useGameStore = create(
             // empties the log or loses what came meanwhile (playtest,
             // activity-log-not-persisted). They replace the log, quietly: no sound
             // plays for a line that is not new.
+            // Sent on every connect, empty too (#78): an empty one keeps the lines this
+            // desk has (a channel with no campaign keeps its lines in the server's memory)
             const lines = Array.isArray(message.payload?.entries) ? message.payload.entries : [];
-            set({ activityLog: lines.map(logLine).slice(-LOG_LINES) });
+            if (lines.length) set({ activityLog: lines.map(logLine).slice(-LOG_LINES) });
+            // It ends the connect frames: the open roll the tray showed was not sent back,
+            // so the server holds it no longer (a restart). The dice stay; no keep or burn
+            // is offered for them, and the tray says why (#78)
+            if (rollAskedBack != null) {
+              const lost = get().lastRoll?.id === rollAskedBack;
+              rollAskedBack = null;
+              if (lost) {
+                set(state => ({
+                  rollError: state.pendingGildedChoice ? ROLL_LOST_RESTART : ROLL_SHUT_RESTART,
+                  pendingGildedChoice: null, lastRollSettled: true, rollLost: state.rollLost + 1,
+                }));
+              }
+            }
+            // The player's roll the Lightkeeper's felt stamped "Burn open" was not sent back
+            // either: no burn can answer it now. It stays on the felt, unstamped (#86)
+            if (feltAskedBack != null) {
+              if (get().tableRoll === feltAskedBack) set({ tableRollSettled: true });
+              feltAskedBack = null;
+            }
           }
           else if (message.type === 'vote_update') {
             const { vote_type, votes } = message.payload;
@@ -1343,6 +1413,10 @@ const useGameStore = create(
                 },
                 campaignRoster: {
                   ...state.campaignRoster,
+                  // No longer waiting: a second Lightkeeper tab dropped neither its pop-up nor
+                  // its Requests count when the other tab approved (#83)
+                  pending_investigators: (state.campaignRoster.pending_investigators || [])
+                    .filter(p => p.id !== approvedChar?.id),
                   active_investigators: (active_investigators || [])
                     .map(sheet => sheetOnCard(cards.find(c => c.id === sheet.id), sheet)),
                   // The Lightkeeper's copy also lists the dead this one replaced (Fallen cards)
@@ -1465,8 +1539,8 @@ const useGameStore = create(
           }
           else if (message.type === 'assignment_report_submitted') {
             // A report filed: the Lightkeeper's desk and its author's get it. The author's
-            // form shows what was filed, and its draft goes.
-            const { character_id, character_name, responses, submitted_at, note } = message.payload;
+            // form shows what was filed, and its draft goes. An amendment says when it was made.
+            const { character_id, character_name, responses, submitted_at, amended_at, note } = message.payload;
             const own = character_id === get().character?.id;
             set(state => {
               const drafts = { ...state.reportDrafts };
@@ -1476,7 +1550,7 @@ const useGameStore = create(
                   ...state.circleCreation,
                   reports: {
                     ...(state.circleCreation.reports || {}),
-                    [character_id]: { character_name, responses, submitted_at, ...(note ? { note } : {}) },
+                    [character_id]: { character_name, responses, submitted_at, ...(amended_at ? { amended_at } : {}), ...(note ? { note } : {}) },
                   },
                 },
                 ...(own ? { reportDrafts: drafts, reportSending: false, reportError: null } : {}),
@@ -1787,8 +1861,10 @@ const useGameStore = create(
       resolveAbilityMark: (ability, choice, offerId) => {
         const { socket } = get();
         markAnswerOut = holdsOwnMark(get().abilityMarkOffer);
+        pointAnswerOut = ability === 'Non-Combatant';
         // Used: its marks stay held until the answer, which keeps them off the sheet or lands them
         set(state => ({ ...nextOffer(state),
+          ...(pointAnswerOut ? { interceptRefused: null } : {}),
           ...(holdsOwnMark(state.abilityMarkOffer) ? offerLets(state, true, state.abilityMarkOffer.seq, offerId) : {}) }));
         if (socket?.readyState === WebSocket.OPEN) {
           socket.send(JSON.stringify({ type: 'resolve_ability_mark', payload: { ability, choice, offer_id: offerId } }));

@@ -268,17 +268,19 @@ async def finalize_roster(body: FinalizeRosterRequest, db: Session = Depends(get
                 current["selected_question_key"] = winner
                 circle.backstory_answers = current
 
-    # Carry chapter house from collaborative backstory answers into the dedicated column
-    if not circle.chapter_house_location:
-        raw_ba2 = circle.backstory_answers
-        if isinstance(raw_ba2, str):
-            try: ba = json.loads(raw_ba2)
-            except: ba = {}
-        else:
-            ba = dict(raw_ba2 or {})
-        house = ba.get("chapter_house", "")
-        if house:
-            circle.chapter_house_location = house
+    # Carry chapter house from collaborative backstory answers into the dedicated column.
+    # The players' answer wins: a Lightkeeper's text stays only when they wrote nothing
+    # (issue #74: hers replaced theirs at the seal)
+    raw_ba2 = circle.backstory_answers
+    if isinstance(raw_ba2, str):
+        try: ba = json.loads(raw_ba2)
+        except: ba = {}
+    else:
+        ba = dict(raw_ba2 or {})
+    house = ba.get("chapter_house", "")
+    house = house.strip() if isinstance(house, str) else ""
+    if house:
+        circle.chapter_house_location = house
 
     circle.is_finalized = True
     campaign.roster_finalized = True

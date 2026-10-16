@@ -1,4 +1,5 @@
 import { Standing } from '../../shared/Standing';
+import { InfoTerm } from '../../shared/ActionInfo';
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RELATIONSHIP_DATA, RELATIONSHIP_TYPES, joinLore, splitLore } from '../../../game/relationships';
@@ -47,7 +48,7 @@ const RelationshipFields = ({ idPrefix, form, onChange, person, verb = 'Relation
               type="button"
               aria-pressed={chosen}
               onClick={() => onChange({ promptIdx: chosen ? null : qi })}
-              className={`w-full text-left text-base font-serif px-3 py-2 border rounded-sm transition-colors leading-snug ${
+              className={`w-full text-left text-base font-serif px-3 py-2 [@media(pointer:coarse)]:min-h-[44px] border rounded-sm transition-colors leading-snug ${
                 chosen ? 'border-oxblood bg-oxblood/5 text-ink' : 'border-parchment-deep bg-cream/50 text-sepia hover:border-sepia/50 hover:text-ink'
               }`}
             >
@@ -68,6 +69,7 @@ const RelationshipFields = ({ idPrefix, form, onChange, person, verb = 'Relation
         onChange={e => onChange({ answer: e.target.value })}
         rows={3}
         disabled={!relType}
+        placeholder={relType ? undefined : 'Pick a relationship first'}
         aria-describedby={question ? `${idPrefix}-q` : undefined}
         className={`${fieldClass} resize-none disabled:opacity-50`}
       />
@@ -226,7 +228,12 @@ export const RelationshipNegotiation = ({
       {/* The dead are a record: no proposal to or from them, Edit and Counter included (the
           server refuses each), only what was already there */}
       {(!inv.is_dead || mine) && <div>
-        <h4 className={`font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>Your relationship to {inv.name}</h4>
+        {/* The slip is placed in the heading's own width: against the term it ran past the
+            card's clipped edge on a phone */}
+        <h4 className={`relative font-sans font-bold uppercase tracking-widest text-oxblood mb-2 ${compact ? 'text-xs' : 'text-sm'}`}>
+          <InfoTerm label={`Your relationship to ${inv.name}`} text="Each direction is its own relationship: yours to them, and theirs to you."
+            anchored={false} slipClassName="left-0 top-full mt-1 w-[min(18rem,100%)]" />
+        </h4>
         {mine && (!isEditing || inv.is_dead) ? (
           <RelationshipStatus rel={mine} myId={myId} theirName={inv.name} forms={forms} respondToRelationship={respondToRelationship}
             onEdit={inv.is_dead || proposeBlocked ? undefined : startEdit} focusRequest={focusRequest} noCounter={inv.is_dead || proposeBlocked} />

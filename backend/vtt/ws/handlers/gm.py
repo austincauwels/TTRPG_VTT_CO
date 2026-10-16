@@ -22,7 +22,7 @@ from vtt.circle_queries import cap_earn_backs, circle_abilities, fill_resources,
 from vtt.creation import ACTION_LABELS
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.access import SCAR_SLOTS
-from vtt.ws.handlers.circle import announce_downed, announce_status
+from vtt.ws.handlers.circle import SPENDING_PAUSED, announce_downed, announce_status
 from vtt.ws.handlers.rolls import settle_rolls
 from vtt.ws.manager import character_key, log_line, manager
 
@@ -33,6 +33,8 @@ MILESTONES = (3, 6, 9)  # its milestones, printed on the circle sheet
 RESOURCE_NAMES = ("stitch", "refresh", "train")
 TABLE_FIELDS = ("name", "stitch", "refresh", "train", "location", "atmosphere", "dispatch_text",
                 "tension_clock", "tension_label", "insignia")
+# The charter, which the formation papers decide until the seal (update_circle)
+CHARTER_FIELDS = ("name", "chapter_house_location", "circle_ability", "insignia")
 
 
 def _clip(text, limit: int = 80) -> str:
@@ -92,6 +94,23 @@ def table_lines(before: dict, circle) -> list:
         if isinstance(old_v, int) and isinstance(new_v, int) and old_v != new_v:
             lines.append(f"The Lightkeeper set the circle's {key.capitalize()} to {new_v} (was {old_v}).")
     return lines
+
+
+def reopen_spending(circle) -> bool:
+    """The next assignment starts with the Lightkeeper's first dispatch: spending that End
+    Assignment closed opens again then (fix round 8, decision 9). Called before the
+    commit, on the locked row; True when it opened, for the log line."""
+    answers = answers_of(circle)
+    if not answers.get(SPENDING_PAUSED) or \
+            not any((getattr(circle, k, "") or "").strip() for k in ("location", "atmosphere", "dispatch_text")):
+        return False
+    answers.pop(SPENDING_PAUSED)
+    circle.backstory_answers = answers
+    circle.resources_editable = True
+    return True
+
+
+SPENDING_REOPENED = "Spending is open again: up to two each."
 
 
 def _resources_full(circle, db) -> bool:
@@ -305,16 +324,20 @@ async def handle_gm_update_circle(ctx):
     circle_id = payload.get("circle_id") or 1
     target_circle = db.query(Circle).filter(Circle.id == circle_id).first()
     if target_circle:
+        db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
         before = table_before(target_circle)
         for field in ["stitch", "refresh", "train", "guard_patrol", "miasma_bleed",
                       "location", "atmosphere", "dispatch_text", "tension_clock", "tension_label"]:
             if field in payload:
                 setattr(target_circle, field, payload[field])
         cap_earn_backs(target_circle, db)
+        reopened = reopen_spending(target_circle)
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
         for line in table_lines(before, target_circle):
             await log_line(db, camp_code, camp_id, line)
+        if reopened:
+            await log_line(db, camp_code, camp_id, SPENDING_REOPENED)
 
 
 async def handle_gm_transition_scene(ctx):
@@ -336,7 +359,12 @@ async def handle_gm_toggle_resource_edit(ctx):
     circle_id = payload.get("circle_id") or (circle.id if circle else 1)
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
+        db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
         target_circle.resources_editable = not bool(getattr(target_circle, "resources_editable", False))
+        # The Lightkeeper's own choice stands: the next dispatch no longer opens spending
+        answers = answers_of(target_circle)
+        if answers.pop(SPENDING_PAUSED, None) is not None:
+            target_circle.backstory_answers = answers
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
         await log_line(db, camp_code, camp_id, "The Lightkeeper opened spending: up to two each."
@@ -398,10 +426,13 @@ async def handle_gm_advance_circle(ctx):
             await manager.broadcast(character_key(member.id), {"type": "character_update", "payload": get_char_dict(member)})
         circle_name = target_circle.name or "The Circle"
         gained = (new_ability or "").strip()
+        # The line names the refill, which used to happen without a word (playtest 4,
+        # advance-log-no-refill)
+        refilled = f" Its Stitch, Refresh and Train are back to {resource_pool(target_circle, db)} each."
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "activity_log",
-            "payload": {"message": f"{circle_name} has advanced and gained {gained}!" if gained
-                        else f"{circle_name} has advanced!", "log_type": "field"},
+            "payload": {"message": (f"{circle_name} has advanced and gained {gained}!" if gained
+                                    else f"{circle_name} has advanced!") + refilled, "log_type": "field"},
         }, db)
         await manager.broadcast_campaign(camp_code, camp_id, {
             "type": "circle_advanced",
@@ -455,6 +486,14 @@ async def handle_gm_end_assignment(ctx):
         # The reports close, and this assignment's reports, tally and spends go
         # (vtt/assignment.py): they stayed open and filed into the next assignment
         clear_paperwork(target_circle)
+        # Circle spending closes with the assignment and opens again with the next one's
+        # first dispatch (fix round 8, decision 9): players spent in the break between
+        paused = bool(target_circle.resources_editable)
+        if paused:
+            target_circle.resources_editable = False
+            answers = answers_of(target_circle)
+            answers[SPENDING_PAUSED] = True
+            target_circle.backstory_answers = answers
         # Meticulous Notes (p. 27): "After an assignment, increase your Illumination track 1
         # additional point because of the detailed notes your character returns with."
         note_takers = [ch for ch in active_chars if "Meticulous Notes" in abilities_of(ch)]
@@ -471,6 +510,8 @@ async def handle_gm_end_assignment(ctx):
             "type": "activity_log",
             "payload": {"message": "— Assignment ended. Ability uses and the hourglass are reset; everyone's gear is cleared, to be chosen again for the next assignment. The reports are closed and cleared. —", "log_type": "field"},
         }, db)
+        if paused:
+            await log_line(db, camp_code, camp_id, "Circle spending is closed until the next assignment's dispatch.")
         for ch in note_takers:
             await manager.broadcast_campaign(camp_code, camp_id, {"type": "activity_log", "payload": {
                 "message": f"Meticulous Notes: {ch.name}'s detailed notes add 1 Illumination.",
@@ -516,6 +557,12 @@ async def handle_update_circle(ctx):
     target_circle = resolve_circle(db, circle_id, camp_id)
     if target_circle:
         db.refresh(target_circle, with_for_update=True)  # see handle_gm_advance_circle
+        # The charter is the players' until the seal: the formation papers decide it, and
+        # the seal writes what they decided (issue #74: the Lightkeeper's chapter house
+        # replaced theirs)
+        if not target_circle.is_finalized and any(field in payload for field in CHARTER_FIELDS):
+            await _refuse(ctx, "update_circle", "Decided in the formation papers until the seal.")
+            return
         old_illum = getattr(target_circle, "illumination", 0) or 0
         before = table_before(target_circle)
         for field in ["name", "stitch", "refresh", "train", "guard_patrol", "miasma_bleed", "location", "atmosphere",
@@ -523,12 +570,21 @@ async def handle_update_circle(ctx):
                       "tension_clock", "tension_label", "insignia"]:
             if field in payload:
                 setattr(target_circle, field, payload[field])
+        # A raise stops at the full track (fix round 8, decision 8): +1 at 12 stored 13
+        # behind "12 / 12". Illumination carried over by Add N or Meticulous Notes is never
+        # cut, and a lowering from it still goes through
+        new_illum = target_circle.illumination
+        if type(new_illum) is int and type(old_illum) is int and new_illum > max(old_illum, TRACK):
+            target_circle.illumination = max(old_illum, TRACK)
         earned = _count_earn_backs(db, target_circle, old_illum) if "illumination" in payload else (0, [])
         cap_earn_backs(target_circle, db)  # a square pressed up can fill what was waiting
+        reopened = reopen_spending(target_circle)
         db.commit()
         await manager.broadcast_campaign(camp_code, camp_id, {"type": "circle_update", "payload": get_circle_dict(target_circle)}, db)
         for line in table_lines(before, target_circle):
             await log_line(db, camp_code, camp_id, line)
+        if reopened:
+            await log_line(db, camp_code, camp_id, SPENDING_REOPENED)
         # A line for the change itself, which the table could not see (playtest,
         # report-questions-tally), then one for each milestone the change passed (it used
         # to need the value to land on one), and one when the track fills (RULES_CHECK.md

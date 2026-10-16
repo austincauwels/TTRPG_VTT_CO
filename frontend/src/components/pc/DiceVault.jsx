@@ -23,15 +23,17 @@ export { MAX_ABILITY_USES, ABILITY_ROLL_MODS, getAvailableRollMods } from '../..
 // its own and comes up whichever part is on show.
 export const DiceVault = ({ showGmControls = false, logEntries: externalLog, playerList, phonePart }) => {
   const {
-    character, lastRoll: ownRoll, lastRollKept, lastRollSettled, tableRoll, isRolling, rollWaiting, rollError, activityLog, rollAction,
+    character, lastRoll: ownRoll, lastRollKept, lastRollSettled, tableRoll, tableRollSettled, rollLost, isRolling, rollWaiting, rollError, activityLog, rollAction,
     pendingGildedChoice, resolveGildedChoice, sendChat, circleCreation,
-    burnResistance, usePostRollAbility, campaignRoster,
+    burnResistance, usePostRollAbility, campaignRoster, memberSheets,
   } = useGameStore(useShallow(s => ({
     character: s.character,
     lastRoll: s.lastRoll,
     lastRollKept: s.lastRollKept,
     lastRollSettled: s.lastRollSettled,
     tableRoll: s.tableRoll,
+    tableRollSettled: s.tableRollSettled,
+    rollLost: s.rollLost,
     isRolling: s.isRolling,
     rollWaiting: s.rollWaiting,
     rollError: s.rollError,
@@ -44,6 +46,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     burnResistance: s.burnResistance,
     usePostRollAbility: s.usePostRollAbility,
     campaignRoster: s.campaignRoster,
+    memberSheets: s.memberSheets,
   })));
 
   const logEntries = externalLog ?? activityLog;
@@ -92,6 +95,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
   // the next roll, with the server's outcome for it (a post-roll ability may change it). On
   // the GM's felt a player's kept die comes with their dice, and the roll has its outcome.
   const [kept, setKept] = useState(null);
+  // The roll was found gone (the keep refused, or not sent back after a restart): the die
+  // kept here did not count, so its outcome is not shown (#78)
+  useEffect(() => { if (rollLost) setKept(null); }, [rollLost]);
   const tableKept = shownTable?.kept && Number.isInteger(shownTable.kept.index)
     ? { roll: lastRoll, value: shownTable.kept.value, idx: shownTable.kept.index,
       // The roster does not carry the roller's drives, so no "1 X back" is claimed here
@@ -106,8 +112,9 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
       return idx === lastRoll.gilded_idx || idx === lastRoll.highest_regular_idx;
     }
     // After a gilded choice the die that was kept is the one that counts, even when a
-    // regular die shows more
+    // regular die shows more; with none kept (the roll was lost, #78) none counts
     if (keptDie) return idx === keptDie.idx;
+    if (lastRoll.needs_gilded_choice) return false;
     if (lastRoll.type === 'zero') {
       const minVal = Math.min(...lastRoll.dice.map(d => d.value));
       return die.value === minVal;
@@ -135,6 +142,19 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
     io.observe(trayRef.current);
     return () => io.disconnect();
   }, [showGmControls]);
+
+  // A player's roll on the Lightkeeper's felt that its player can still burn on: her open
+  // roll would end that, so the slip is stamped "Burn open" (#86). Her own roll takes the
+  // felt, and End Assignment settles it (the felt keeps the roll, not the stamp). A roller
+  // with no resistance left in the action's drive, as far as her desk knows, has no burn.
+  const rollerSheet = shownTable?.character_id != null
+    ? (memberSheets?.[shownTable.character_id]
+      || campaignRoster?.active_investigators?.find(inv => inv.id === shownTable.character_id)) : null;
+  const rollerDrive = shownTable?.action ? driveKeyFor(shownTable.action) : null;
+  const rollerCanBurn = !rollerSheet || !rollerDrive || rollerSheet[`${rollerDrive}_max`] == null
+    || (!rollerSheet.is_dead && Math.floor(rollerSheet[`${rollerDrive}_max`] / 3) > (rollerSheet[`${rollerDrive}_resistance_spent`] || 0));
+  const burnOpen = !!shownTable && shownTable.character_id != null && !tableRollSettled && rollerCanBurn
+    && !!shownTable.roll?.outcome && !['full_success', 'critical_success'].includes(shownTable.roll.outcome);
 
   // Who the tray's roll belongs to
   const rollerName = shownTable ? (shownTable.name || 'Investigator') : showGmControls ? 'Lightkeeper' : (character?.name || 'You');
@@ -221,6 +241,7 @@ export const DiceVault = ({ showGmControls = false, logEntries: externalLog, pla
           rating={rollRating}
           character={showGmControls ? null : character}
           rollHint={!showGmControls}
+          burnOpen={burnOpen}
         />
       </div>
 

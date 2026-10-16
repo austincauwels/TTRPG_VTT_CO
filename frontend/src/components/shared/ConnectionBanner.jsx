@@ -30,14 +30,14 @@ export const ConnectionBanner = ({ className = 'sticky top-0 z-[850]' }) => {
         {connectionState === 'refused' ? (
           <button
             onClick={() => setStage('HOME')}
-            className="shrink-0 min-h-[40px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition"
+            className="shrink-0 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition"
           >
             Back to chapter hub
           </button>
         ) : (
           <button
             onClick={reconnect}
-            className="shrink-0 min-h-[40px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition"
+            className="shrink-0 min-h-[40px] [@media(pointer:coarse)]:min-h-[44px] px-4 font-sans text-xs font-black uppercase tracking-widest text-cream bg-oxblood border border-ink rounded hover:brightness-125 transition"
           >
             {connectionState === 'replaced' ? 'Use this tab' : 'Reconnect now'}
           </button>

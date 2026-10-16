@@ -136,6 +136,32 @@ def _shown(value) -> str:
     return text if len(text) <= SHOWN_MAX else text[:SHOWN_MAX].rstrip() + "..."
 
 
+def _changed_part(old, new) -> tuple:
+    """A text change as the log shows it, (old, new): whole when both fit SHOWN_MAX, else
+    only the words that differ, with one word of context each side and "..." where words
+    are left out, each side then clipped to SHOWN_MAX. Both used to be cut at the same 40
+    characters, so a change further on read as none (playtest 4,
+    edit-sheet-log-truncates-identically)."""
+    a, b = " ".join(str(old or "").split()), " ".join(str(new or "").split())
+    if not a or not b or (len(a) <= SHOWN_MAX and len(b) <= SHOWN_MAX):
+        return _shown(a), _shown(b)
+    wa, wb = a.split(" "), b.split(" ")
+    start = 0
+    while start < min(len(wa), len(wb)) and wa[start] == wb[start]:
+        start += 1
+    end = 0
+    while end < min(len(wa), len(wb)) - start and wa[-1 - end] == wb[-1 - end]:
+        end += 1
+    start, end = max(0, start - 1), max(0, end - 1)
+
+    def part(words):
+        middle = " ".join(words[start:len(words) - end])
+        cut = len(middle) > SHOWN_MAX
+        middle = middle[:SHOWN_MAX].rstrip() if cut else middle
+        return ("..." if start else "") + middle + ("..." if end or cut else "")
+    return part(wa), part(wb)
+
+
 def _scars_of(character) -> list:
     raw = getattr(character, "scars_list", None)
     return [s for s in raw if isinstance(s, str)] if isinstance(raw, list) else []
@@ -208,7 +234,8 @@ def apply_edit(character, changes: dict) -> list:
 
     def text_change(key, label=None):
         if (before[key] or "") != (after[key] or ""):
-            said.append(f"{label or key} {_shown(before[key])} to {_shown(after[key])}")
+            old, new = _changed_part(before[key], after[key])
+            said.append(f"{label or key} {old} to {new}")
 
     text_change("name")
     text_change("pronouns")

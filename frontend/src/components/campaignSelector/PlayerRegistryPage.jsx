@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import useGameStore from '../../store/gameStore';
 import { UnaffiliatedCharacterRow } from './UnaffiliatedCharacterRow';
 import { RowDelete, DeletedSlips, DeleteError } from './RowDelete';
@@ -19,6 +19,11 @@ export const PlayerRegistryPage = ({
 }) => {
   const letInIds = useGameStore(s => s.letInIds);
   const forgetLetIn = useGameStore(s => s.forgetLetIn);
+  // The server says whether a row is still let in: once the investigator was played on
+  // another device, this browser's own mark of the approval goes too
+  useEffect(() => {
+    characters.forEach(c => { if (c.status === 'active' && c.let_in === false && letInIds.includes(c.id)) forgetLetIn(c.id); });
+  }, [characters, letInIds]);
   const deleteCharacter = useGameStore(s => s.deleteCharacter);
   const restoreCharacter = useGameStore(s => s.restoreCharacter);
   const removal = useDeleteUndo({ remove: deleteCharacter, restore: restoreCharacter });
@@ -110,12 +115,19 @@ export const PlayerRegistryPage = ({
             <div>
               <p className="font-sans font-bold text-xs lg:text-sm tracking-widest uppercase mb-2 text-seal-green">In a campaign</p>
               <div className="space-y-1.5">
-                {characters.filter(c => c.status === 'active').map(char => (
+                {characters.filter(c => c.status === 'active').map(char => {
+                  // Let in and not yet played: the server's mark (every browser) wherever the
+                  // row carries it; this browser's, from an approval it saw, only where not
+                  const letIn = !char.is_dead && ('let_in' in char ? char.let_in : letInIds.includes(char.id));
+                  return (
                   <div key={char.id} className="relative flex flex-wrap items-center" style={{ border: '1px solid rgb(var(--c-sepia) / 0.15)' }}>
                   {/* Play reads the lists again before the desk opens (issue #42): meanwhile the
-                      row says Opening, and Leave waits */}
+                      row says Opening, and Leave waits. The name says Play first; the stamp is
+                      its description (issue #84) */}
                   <button
                     onClick={() => { if (leavingId !== char.id) { forgetLetIn(char.id); enterAsPlayer(char); } }}
+                    aria-label={`Play ${char.name}${char.campaign_name ? `, ${char.campaign_name}` : ''}${char.is_dead ? ', dead' : ''}`}
+                    aria-describedby={letIn ? `let-in-${char.id}` : undefined}
                     aria-busy={entering === char.id}
                     aria-disabled={entering != null || undefined}
                     className={`flex-1 min-w-0 max-sm:basis-full flex items-center gap-3 px-3 py-2.5 hover:bg-sepia/10 transition-colors text-left group ${entering === char.id ? 'cursor-wait' : ''}`}
@@ -128,8 +140,8 @@ export const PlayerRegistryPage = ({
                       )}
                       {/* On a phone the stamp sits under the campaign, which it would cut short */}
                       {char.is_dead && <Standing inv={char} className="sm:hidden mt-0.5" />}
-                      {letInIds.includes(char.id) && !char.is_dead && (
-                        <span data-let-in="" className="inline-block mt-1 font-sans text-xs font-black uppercase tracking-widest text-seal-green border-2 border-seal-green rounded-sm px-1.5 py-0.5 -rotate-2">
+                      {letIn && (
+                        <span id={`let-in-${char.id}`} data-let-in="" className="inline-block mt-1 font-sans text-xs font-black uppercase tracking-widest text-seal-green border-2 border-seal-green rounded-sm px-1.5 py-0.5 -rotate-2">
                           Let in: press Play
                         </span>
                       )}
@@ -143,7 +155,8 @@ export const PlayerRegistryPage = ({
                   {deleteControl(char)}
                   {!char.is_dead && leaveControl(char)}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

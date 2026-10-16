@@ -107,6 +107,8 @@ export const DispatchNote = ({ circle, className = '' }) => {
                 </button>
               )}
             </div>
+          ) : !location && !atmosphere ? (
+            <p className="font-serif text-base italic text-sepia">No dispatch yet.</p>
           ) : (
             <div className="space-y-2 font-bold font-serif">
               <p className="text-base font-black border-b border-ink/10 pb-1 leading-tight">

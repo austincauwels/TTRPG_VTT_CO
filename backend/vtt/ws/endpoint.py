@@ -149,6 +149,14 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
         if character is not None and campaign is not None and character.status not in MEMBER_STATUSES:
             shown_circle = _shared_circle(db)
 
+        # The investigator's own desk is opening in the campaign: the registry's Let in mark
+        # goes in every browser (it was the player's to see until they pressed Play), before
+        # the sheet goes out
+        if character is not None and campaign is not None and character.let_in \
+                and character.status == "active" and character.campaign_id == campaign.id:
+            character.let_in = False
+            db.commit()
+
         # The two go out together: a desk counts the circle's timer from when the first of
         # them arrived (frontend store/circleArrivals.js), since drawing the character can
         # hold the circle's frame back on a desk that is still loading.
@@ -160,12 +168,13 @@ async def _serve(websocket: WebSocket, db, game_id: str, user_id: int, stamp: st
             await send_held_mark(websocket, character)
             await send_open_intercepts(websocket, character)
         elif is_gm and campaign is not None:
-            await send_felt_roll(websocket, campaign.id)
+            await send_felt_roll(websocket, campaign.id, db)
         # The Activity Log lines this channel was sent lately, so the desk's log is whole
-        # again after a reload or a drop (sent only when there are some)
+        # again after a reload or a drop. Sent on every connect, empty too, as the last of
+        # the connect frames: a desk that showed an open roll and was not sent it again
+        # above knows by then that the server holds it no longer (a restart, #78)
         history = manager.history_for(channel, camp_id)
-        if history:
-            await websocket.send_json({"type": "activity_history", "payload": {"entries": history}})
+        await websocket.send_json({"type": "activity_history", "payload": {"entries": history}})
 
         ctx = WSContext(game_id=game_id, db=db, circle=circle, camp_code=camp_code, camp_id=camp_id,
                         user_id=user_id, is_gm=is_gm, own_char_id=own_char_id, channel=channel)

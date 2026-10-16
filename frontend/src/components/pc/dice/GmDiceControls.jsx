@@ -29,20 +29,27 @@ export const GmDiceControls = ({ rollAction }) => {
           className="w-8 h-8 md:[@media(pointer:coarse)]:w-11 md:[@media(pointer:coarse)]:h-11 bg-black/35 border border-parchment-deep/30 rounded-sm text-sm font-bold text-cream hover:bg-black/55 hover:border-parchment-deep/60 transition-colors"
         >+</button>
       </div>
-      <label className="flex items-center gap-1.5 cursor-pointer ml-auto select-none md:[@media(pointer:coarse)]:min-h-[44px] md:[@media(pointer:coarse)]:px-1">
+      {/* Secret stays ticked after a roll, so while it is the box and the Roll button say
+          so loudly: the next roll is hers alone too (88.u8) */}
+      <label className={`flex items-center gap-1.5 cursor-pointer ml-auto select-none px-1.5 py-1 rounded-sm transition-colors md:[@media(pointer:coarse)]:min-h-[44px] ${
+        gmSecretRoll ? 'bg-black/45 ring-1 ring-oxblood-lit' : ''}`}>
         <input
           type="checkbox"
           checked={gmSecretRoll}
           onChange={e => setGmSecretRoll(e.target.checked)}
-          className="w-4 h-4 accent-moonlight-steel cursor-pointer"
+          className={`w-4 h-4 cursor-pointer ${gmSecretRoll ? 'accent-oxblood-lit' : 'accent-moonlight-steel'}`}
         />
-        <span className="font-sans text-sm uppercase tracking-widest text-moonlight-steel font-bold">Secret</span>
+        <span className={`font-sans text-sm uppercase tracking-widest font-bold ${gmSecretRoll ? 'text-oxblood-lit' : 'text-moonlight-steel'}`}>Secret</span>
       </label>
 
       <button
         onClick={() => rollAction('Lightkeeper', gmDiceCount, gmSecretRoll)}
-        className="px-5 py-2 bg-oxblood text-cream border border-ink hover:brightness-125 font-sans text-sm font-black uppercase tracking-widest transition rounded"
-      >Roll {gmDiceCount} {gmDiceCount === 1 ? 'die' : 'dice'}{gmSecretRoll ? ' in secret' : ''}</button>
+        className={`inline-flex items-center gap-2 px-5 py-2 [@media(pointer:coarse)]:min-h-[44px] hover:brightness-125 font-sans text-sm font-black uppercase tracking-widest transition rounded border-2 ${
+          gmSecretRoll ? 'bg-ink text-oxblood-lit border-dashed border-oxblood-lit' : 'bg-oxblood text-cream border-ink'}`}
+      >
+        {gmSecretRoll && <SafeIcon name="GiDominoMask" size={18} className="shrink-0" />}
+        Roll {gmDiceCount} {gmDiceCount === 1 ? 'die' : 'dice'}{gmSecretRoll ? ' in secret' : ''}
+      </button>
     </div>
   );
 };

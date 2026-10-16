@@ -13,6 +13,7 @@ from vtt import deletion
 from vtt.auth import get_current_user, require_self
 from vtt.db import get_db
 from vtt.schemas import CampaignSummaryItem, CharacterSummaryItem
+from vtt.serializers import let_in
 
 router = APIRouter()
 
@@ -43,6 +44,7 @@ def get_user_characters(user_id: int, db: Session = Depends(get_db), user: User 
             campaign_name=camp.name if camp else None,
             campaign_code=camp.campaign_code if camp else None,
             pen_font=c.pen_font,
+            let_in=let_in(c),
         ))
     return result
 

@@ -92,6 +92,7 @@ export const rulebookLogText = (text) => {
 //   "Keep the gilded 4: Mixed success, 1 Nerve back"   "Keep the 4: Mixed success"
 // When the drive is already full (character given) nothing would come back, so the
 // gilded line says so no more than the plain one: "Keep the gilded 4: Mixed success".
+// When both give the same outcome the plain one says "no drive back" (below).
 // Each choice also carries `back` ("1 Nerve back" or ''), for the line after the keep.
 const DRIVE_NAME = { nerve: 'Nerve', cunning: 'Cunning', intuition: 'Intuition' };
 export const keepChoices = (roll, character = null) => {
@@ -100,13 +101,19 @@ export const keepChoices = (roll, character = null) => {
   const add = (idx, gilded) => {
     const die = dice[idx];
     if (!die) return;
-    const word = OUTCOME[outcomeForKept(die.value, dice)].word;
+    const outcome = outcomeForKept(die.value, dice);
     const drive = driveKeyFor(roll.action);
     const full = !!character && drive && Number(character[`${drive}_current`]) >= Number(character[`${drive}_max`]);
     const back = gilded && !full ? `1 ${DRIVE_NAME[drive]} back` : '';
-    choices.push({ idx, die, back, label: `Keep the ${gilded ? 'gilded ' : ''}${die.value}: ${word}${back ? `, ${back}` : ''}` });
+    choices.push({ idx, die, back, outcome, gilded });
   };
   add(roll?.gilded_idx, true);
   add(roll?.highest_regular_idx, false);
-  return choices;
+  // Two picks with the same outcome differ only in the drive back, so both say what they
+  // give back (88.u17: "Failure" twice, and only one said why it was different)
+  const same = choices.length === 2 && choices[0].outcome === choices[1].outcome && choices.some(c => c.back);
+  return choices.map(({ outcome, gilded, ...c }) => {
+    const extra = c.back || (same ? 'no drive back' : '');
+    return { ...c, label: `Keep the ${gilded ? 'gilded ' : ''}${c.die.value}: ${OUTCOME[outcome].word}${extra ? `, ${extra}` : ''}` };
+  });
 };

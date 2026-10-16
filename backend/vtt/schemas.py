@@ -345,6 +345,8 @@ class CharacterSummaryItem(BaseModel):
     campaign_name: Optional[str] = None
     campaign_code: Optional[str] = None
     pen_font: Optional[str] = None
+    # Let in by the Lightkeeper and not yet played: the registry's Let in mark
+    let_in: bool = False
     class Config:
         from_attributes = True
 
@@ -397,6 +399,8 @@ class CharacterSheet(CharacterResponse):
     sheet_edited: bool = False
     # The marks an open soak or Death Defy offer holds back: {ability, mark_types}, or None
     held_marks: Optional[Dict[str, Any]] = None
+    # Let in by the Lightkeeper and not yet played (the registry's Let in mark)
+    let_in: bool = False
 
 class CharacterRosterItem(BaseModel):
     id: int
@@ -429,6 +433,9 @@ class CharacterRosterItem(BaseModel):
     # A direct edit by the player the Lightkeeper has not seen (the roster card's dot),
     # filled for the Lightkeeper alone
     sheet_edited: bool = False
+    # The marks an open soak or Death Defy offer holds back, as the sheet says them
+    # ({ability, mark_types}, serializers.held_marks), for the Lightkeeper alone
+    held_marks: Optional[Dict[str, Any]] = None
     class Config:
         from_attributes = True
 

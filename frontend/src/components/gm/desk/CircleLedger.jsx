@@ -120,7 +120,7 @@ export const CircleLedger = ({ onOpen, className = '' }) => {
           })}
           <div className="circle-ledger-row">
             <dt>Spending</dt>
-            <dd className={circle.resources_editable ? 'text-seal-green font-semibold' : 'text-sepia'}>{circle.resources_editable ? 'Open' : 'Locked'}</dd>
+            <dd className={circle.resources_editable ? 'text-seal-green font-semibold' : 'text-sepia'}>{circle.resources_editable ? 'Open' : circle.backstory_answers?.spending_paused ? 'Closed until the dispatch' : 'Locked'}</dd>
           </div>
           <div className="circle-ledger-row !items-start py-1">
             <dt className="pt-0.5">Refills</dt>

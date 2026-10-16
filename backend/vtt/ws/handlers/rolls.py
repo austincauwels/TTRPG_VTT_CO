@@ -24,7 +24,6 @@ from vtt.circle_queries import (SAW_THIS_COMING_USES, STAMINA_DICE, circle_abili
                                 train_dice_left)
 from vtt.serializers import get_char_dict, get_circle_dict
 from vtt.ws.handlers.circle import announce_downed, announce_status
-from vtt.serializers import awaiting_scar
 from vtt.ws.handlers.marks import apply_mark
 from vtt.ws.manager import character_key, manager
 
@@ -39,6 +38,7 @@ ACTION_KEYS = ("move", "strike", "control", "sway", "sneak", "hide", "survey", "
 _pending_gilded: dict = {}
 
 NO_CHOICE_WAITING = "No roll is waiting for a die to be kept. Roll again."
+KEEP_FIRST = "Keep a die from your last roll first."
 
 
 def holds_roll(character_id) -> bool:
@@ -130,16 +130,30 @@ async def send_held_roll(websocket, character):
         await websocket.send_json({"type": "roll_result", "payload": payload})
 
 
-async def send_felt_roll(websocket, campaign_id):
+async def send_felt_roll(websocket, campaign_id, db=None):
     """The Lightkeeper's desk opening again (a reload, another device) is sent the newest
     roll on her felt, marked replayed (it plays no dice): her own as roll_result, or a
     player's as the dice_thrown that put it there, with its outcome as it is now. Her felt
-    used to come back empty (#40)."""
+    used to come back empty (#40). A player's roll its player can no longer burn on (a
+    newer roll of another action, or a secret one, answers a burn now, or the roller has
+    no resistance left in the action's drive or is dead) comes with settled: true, so her
+    felt does not stamp it "Burn open" (#86). Her reloaded desk knows the roller only from
+    the roster card, which carries no drive maximum or resistance spent."""
     felt = _felt_roll.get(campaign_id)
     if felt is not None:
         kind, payload = felt
+        extra = {}
+        if kind == "table":
+            last = _last_roll.get(payload["character_id"])
+            if last is None or last["action"] != payload["action"] or last.get("secret"):
+                extra["settled"] = True
+            elif db is not None:
+                roller = db.query(Character).filter(Character.id == payload["character_id"]).first()
+                if (roller is None or roller.is_dead
+                        or resistance_left(roller, drive_for_action(payload["action"])) <= 0):
+                    extra["settled"] = True
         await websocket.send_json({"type": "roll_result" if kind == "own" else "dice_thrown",
-                                   "payload": {**payload, "replayed": True}})
+                                   "payload": {**payload, "replayed": True, **extra}})
 
 
 async def _refuse(ctx, action, status, detail):
@@ -220,8 +234,14 @@ async def _dice_thrown(ctx, character, action, roll, rating, kept=None, settles=
     # A player's roll is now the newest on the Lightkeeper's felt (her own is: handle_roll)
     if character is not None and ctx.camp_id is not None:
         _felt_roll[ctx.camp_id] = ("table", payload)
+    # A roller with no resistance left in the action's drive cannot burn on it: settled,
+    # so the Lightkeeper's felt does not stamp it "Burn open" from a roster card that
+    # carries no resistance (#86). Not stored on the felt: send_felt_roll works it out again
+    frame = payload
+    if character is not None and (character.is_dead or resistance_left(character, drive_for_action(action)) <= 0):
+        frame = {**payload, "settled": True}
     await manager.broadcast_campaign(ctx.camp_code, ctx.camp_id, {
-        "type": "dice_thrown", "payload": payload}, ctx.db, exclude=ctx.channel)
+        "type": "dice_thrown", "payload": frame}, ctx.db, exclude=ctx.channel)
 
 
 async def _log_roll(ctx, character, message, secret=False, log_type="roll"):
@@ -496,6 +516,11 @@ async def handle_roll(ctx):
             if act not in ACTION_KEYS:
                 await _refuse(ctx, "roll", 422, "Unknown action.")
                 return
+            # A gilded roll still waits for its die: another roll would replace it (a free
+            # reroll) from a desk that has not seen the choice, a second tab or device (#80)
+            if character.id in _pending_gilded:
+                await _refuse(ctx, "roll", 409, KEEP_FIRST)
+                return
             # Stamina Training's dice are the circle's: read and locked until the commit, so
             # two players cannot take the last one at once
             if "Stamina Training" in mods and camp_id:
@@ -609,7 +634,7 @@ async def handle_roll(ctx):
                 named = f" ({', '.join(used_abilities)})" if used_abilities else ""
                 log_msg = f"{char_name} rolled {act}{named} — {result_val} · {outcome_label} {_dice_text(res)}."
             else:
-                log_msg = f"Lightkeeper rolled — {result_val} · {outcome_label} {_dice_text(res)}."
+                log_msg = f"The Lightkeeper rolled — {result_val} · {outcome_label} {_dice_text(res)}."
 
             # The gilded refresh and Well-Read follow the dice, so they apply to a secret
             # roll too (RULES_CHECK.md item 6); only its log line stays with the roller
@@ -854,7 +879,7 @@ async def handle_use_post_roll_ability(ctx):
         # recorded counts.
         ally = _ally(ctx, payload)
         mixed = fresh and last["outcome"] == "mixed_success"
-        scar_number = ally is not None and (ally.scars_count or 0) + (1 if ally.id in awaiting_scar else 0)
+        scar_number = ally is not None and (ally.scars_count or 0) + (1 if ally.scar_pending else 0)
         if not (fresh and last["action"] == "read" and (mixed or last["outcome"] in SUCCESS)
                 and ally is not None and ally.incapacitated and not ally.is_dead and scar_number < 4):
             db.rollback()

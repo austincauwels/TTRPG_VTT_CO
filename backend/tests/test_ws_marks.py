@@ -831,7 +831,7 @@ def test_non_combatant_lets_each_ally_recover_a_drive_point(client):
     camp = support.new_campaign(client)
     doctor = support.active_member(client, camp, specialty_ability="Non-Combatant", body_marks=3)
     ally = support.active_member(client, camp, nerve_max=3, nerve_current=1)
-    other = support.active_member(client, camp, cunning_max=3, cunning_current=3)
+    other = support.active_member(client, camp, cunning_max=3, cunning_current=3, nerve_max=3, nerve_current=2)
     stranger = support.active_member(client, support.new_campaign(client))
     with support.ws_connect(client, doctor["id"]) as wd, support.ws_connect(client, ally["id"]) as wa, \
             support.ws_connect(client, other["id"]) as wo, support.ws_connect(client, stranger["id"]) as wx:
@@ -850,8 +850,17 @@ def test_non_combatant_lets_each_ally_recover_a_drive_point(client):
         assert wa.sync() == [{"type": "action_rejected", "payload": {
             "action": "resolve_ability_mark", "status": 409, "detail": "No Non-Combatant drive point is waiting."}}]
         wo.drain()
-        wo.send("resolve_ability_mark", ability="Non-Combatant", choice="cunning")   # capped at the maximum
-        assert wo.sync()[0]["payload"]["cunning_current"] == 3
+        # A full drive takes nothing back: refused, and the point waits on, its card sent
+        # again with the sheet (#79: it was spent, and logged as recovered)
+        wo.send("resolve_ability_mark", ability="Non-Combatant", choice="cunning")
+        msgs = wo.sync()
+        assert support.types(msgs) == ["action_rejected", "character_update", "ability_mark_offer"]
+        assert msgs[0]["payload"] == {"action": "resolve_ability_mark", "status": 409,
+                                      "detail": "Cunning is already full."}
+        assert msgs[1]["payload"]["cunning_current"] == 3
+        assert msgs[2]["payload"]["ability"] == "Non-Combatant" and 100 < msgs[2]["payload"]["expires_in"] <= 120
+        wo.send("resolve_ability_mark", ability="Non-Combatant", choice="nerve")
+        assert support.types(wo.sync()) == ["character_update", "activity_log"]
         # The fourth mark, which incapacitates, is answered too
         wd.send("take_mark", mark_type="body", is_from_enemy=False)
         wd.sync()
@@ -1293,19 +1302,21 @@ def test_fourth_scar_kills(client):
 
 
 def test_revive_character(client):
+    """Only the Lightkeeper revives (fix round 8, decision 4): the line names her."""
     camp = support.new_campaign(client)
     ch = support.active_member(client, camp, body_marks=2, brain_marks=1, bleed_marks=3, incapacitated=True)
     with support.ws_connect(client, ch["id"]) as ws, support.ws_connect(client, camp["campaign_code"]) as gm:
-        ws.send("revive_character")
-        msgs = ws.sync()
+        gm.send("revive_character", character_id=ch["id"])
+        desk = gm.sync()
+        msgs = ws.drain()
         assert support.types(msgs) == ["character_update", "activity_log", "member_status"]
         p = msgs[0]["payload"]
         # Fixed (RULES_CHECK 9): only incapacitated clears; the other tracks keep their marks
         assert (p["body_marks"], p["brain_marks"], p["bleed_marks"], p["incapacitated"]) == (2, 1, 3, False)
         assert p["is_dead"] is False
-        assert msgs[1]["payload"] == {"message": f"{ch['name']} has been revived and is operational.",
+        assert msgs[1]["payload"] == {"message": f"The Lightkeeper revived {ch['name']}.",
                                       "log_type": "field", "ink_color": engine.INK_COLORS[0]}
-        assert gm.drain() == [{"type": "member_update", "payload": p}, msgs[1]]
+        assert desk == [{"type": "member_update", "payload": p}, msgs[1]]
 
 
 
@@ -1319,7 +1330,7 @@ def test_a_second_revive_does_nothing(client):
         gm.send("revive_character", character_id=ch["id"])
         gm.send("revive_character", character_id=ch["id"])
         lines = [m for m in gm.sync() if m["type"] == "activity_log"]
-        assert [m["payload"]["message"] for m in lines] == [f"{ch['name']} has been revived and is operational."]
+        assert [m["payload"]["message"] for m in lines] == [f"The Lightkeeper revived {ch['name']}."]
         assert support.types(ws.drain()) == ["character_update", "activity_log", "member_status"]
     assert support.fetch(Character, ch["id"]).incapacitated is False
 
