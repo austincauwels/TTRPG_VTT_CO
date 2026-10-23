@@ -472,8 +472,9 @@ const GEAR_ICONS = {
 const infoTabs = new Map();
 
 export const InvestigatorDossier = ({ character: charProp = null, readOnly = false, traumaEdit = null }) => {
-  const { character: storeChar, circle, updateDrive, rollAction, takeMark, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster, editSheet, updateGear, sheetEditError } = useGameStore(useShallow(s => ({
+  const { character: storeChar, circle, updateDrive, rollAction, takeMark, setStage, pendingGildedChoice, isRolling, setLocalCharacter, useAbility, abilityUseError, openAbilityScar, pendingScar, campaignRoster, editSheet, updateGear, sheetEditError, reviveCharacter } = useGameStore(useShallow(s => ({
     character: s.character,
+    reviveCharacter: s.reviveCharacter,
     editSheet: s.editSheet,
     updateGear: s.updateGear,
     sheetEditError: s.sheetEditError,
@@ -1474,6 +1475,16 @@ export const InvestigatorDossier = ({ character: charProp = null, readOnly = fal
               {character?.incapacitated && !character?.is_dead && readOnly && traumaEdit?.revive && (
                 <button
                   onClick={traumaEdit.revive}
+                  className="min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
+                >
+                  Revive
+                </button>
+              )}
+              {/* Outside any campaign there is no Lightkeeper, so the player revives their own
+                  (PR 89 follow-up); a scar owed is recorded first */}
+              {character?.incapacitated && !character?.is_dead && !character?.scar_pending && !readOnly && !character?.campaign_id && (
+                <button
+                  onClick={reviveCharacter}
                   className="min-h-[32px] [@media(pointer:coarse)]:min-h-[44px] px-2.5 py-1 whitespace-nowrap font-sans text-xs font-black uppercase tracking-widest border border-oxblood/60 text-oxblood hover:bg-oxblood hover:text-cream transition-all rounded-sm"
                 >
                   Revive

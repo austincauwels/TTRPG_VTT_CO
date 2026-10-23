@@ -261,8 +261,26 @@ def test_a_player_cannot_revive_their_investigator(client):
     assert support.fetch(Character, ch["id"]).incapacitated is False
 
 
-def test_an_unaffiliated_investigator_cannot_revive_itself_either(client):
+def test_an_unaffiliated_investigator_revives_itself(client):
+    """Changed (PR 89 follow-up, call 1): an investigator outside any campaign could never be
+    revived, as it has no Lightkeeper. Its player revives it, and the line names the investigator."""
     ch = support.forge(client, incapacitated=True)
+    with support.ws_connect(client, ch["id"]) as ws:
+        ws.send("revive_character")
+        msgs = ws.sync()
+        assert [m["payload"]["incapacitated"] for m in msgs if m["type"] == "character_update"] == [False]
+        assert [m["payload"]["message"] for m in msgs if m["type"] == "activity_log"] == [
+            f"{ch['name']} is back on their feet."]
+        ws.send("revive_character")
+        assert ws.sync() == []
+    assert support.fetch(Character, ch["id"]).incapacitated is False
+
+
+def test_a_pending_investigator_cannot_revive_itself(client):
+    """A request to join names a campaign, so its Lightkeeper is the one to revive."""
+    camp = support.new_campaign(client)
+    ch = support.forge(client, incapacitated=True)
+    assert support.join(client, ch["id"], camp["campaign_code"]).status_code == 200
     with support.ws_connect(client, ch["id"]) as ws:
         ws.send("revive_character")
         assert support.types(ws.sync()) == ["action_rejected"]

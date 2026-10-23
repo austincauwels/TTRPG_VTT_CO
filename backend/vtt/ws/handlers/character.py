@@ -215,10 +215,12 @@ async def handle_revive_character(ctx):
     # To the character's own channel: a revive the Lightkeeper sends would otherwise reach
     # only the Lightkeeper's desk (which follows through member_update), not the player's
     await manager.broadcast(character_key(character.id), {"type": "character_update", "payload": get_char_dict(character)})
+    # Only the Lightkeeper revives in a campaign; outside one the player does (access._revive)
+    line = f"The Lightkeeper revived {character.name}." if ctx.is_gm else f"{character.name} is back on their feet."
     await manager.broadcast_campaign(camp_code, camp_id, {
         "type": "activity_log",
         "payload": {
-            "message": f"The Lightkeeper revived {character.name}.",
+            "message": line,
             "log_type": "field",
             "ink_color": getattr(character, "ink_color", "") or "",
         }

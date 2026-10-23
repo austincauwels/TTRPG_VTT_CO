@@ -578,8 +578,10 @@ REVIVE_IS_THE_LIGHTKEEPERS = "Only the Lightkeeper revives an investigator."
 
 def _revive(ctx, action):
     """Only the Lightkeeper revives an investigator (fix round 8, decision 4): back on
-    their feet once the circle gets them somewhere safe, which is hers to say."""
-    if action == "revive_character" and not ctx.is_gm:
+    their feet once the circle gets them somewhere safe, which is hers to say. An
+    investigator outside any campaign has no Lightkeeper, so its player revives it
+    (PR 89 follow-up, call 1)."""
+    if action == "revive_character" and not ctx.is_gm and ctx.camp_id is not None:
         raise Rejected(403, REVIVE_IS_THE_LIGHTKEEPERS)
 
 
